@@ -4,17 +4,32 @@ import java.util.concurrent.ExecutorService;
 
 public class TaskTracker
 {
-    private int startedTasks = 0;
-    private int finishedTasks = 0;
-    private boolean waitingForWake = false;
     private ExecutorService executorService;
+    private int startedTasks;
+    private int finishedTasks;
+    private boolean waitingForWake;
     
+    /**
+     * TaskTracker uses an ExecutorService to run MapReduceTask and provides an easy way of waiting until all tasks finish
+     */
     public TaskTracker(ExecutorService executorService)
     {
         this.executorService = executorService;
+        reset();
     }
     
-    public void waitForTasks() throws InterruptedException
+    /**
+     * Shuts down the underlying executor service
+     */
+    public void shutdown()
+    {
+        executorService.shutdown();
+    }
+    
+    /**
+     * Blocks current thread until all tasks are finished, then reset the task tracker.
+     */
+    public void waitForTasksAndReset() throws InterruptedException
     {
         while (true)
         {
@@ -32,10 +47,11 @@ public class TaskTracker
                 }
             }
         }
+        reset();
     }
     
     /**
-     * Not synchronized, assuming all tasks are started from the same thread
+     * Start a new task. Note: This is not synchronized. All tasks should be started from the same thread.
      */
     public void startTask(MapReduceTask task)
     {
@@ -44,17 +60,25 @@ public class TaskTracker
     }
     
     /**
-     * Called from individual tasks to notify that they finished execution
+     * Called from individual tasks to indicate they finished execution.
      */
     public void finishTask()
     {
         synchronized (this)
         {
             finishedTasks++;
+            // Wake the main thread up if needed
             if (waitingForWake && startedTasks == finishedTasks)
             {
                 notify();
             }
         }
+    }
+    
+    private void reset()
+    {
+        startedTasks = 0;
+        finishedTasks = 0;
+        waitingForWake = false;
     }
 }

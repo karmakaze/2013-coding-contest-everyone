@@ -1,13 +1,15 @@
 package ca.kijiji.contest.mapred;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.SortedMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import ca.kijiji.contest.IParkingTicketsStatsProcessor;
@@ -20,18 +22,25 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
     private static final int AVAILABLE_CORES = Runtime.getRuntime().availableProcessors();
     private static final int MAPPER_LINES = 20000;
     
+    // Debugging info
     private static long startTime;
-    private ExecutorService executorService;
     
     public SortedMap<String, Integer> sortStreetsByProfitability(InputStream inputStream) throws Exception
     {
-        executorService = Executors.newFixedThreadPool(AVAILABLE_CORES);
-        
         startTime = System.currentTimeMillis();
+        // Create a TaskTracker to run and track MapReduceTasks
+        TaskTracker taskTracker = new TaskTracker(Executors.newFixedThreadPool(AVAILABLE_CORES));
         
-        List<MapperResult> mapperResults = mapData(inputStream);
-        List<ReducerResult> reducerResults = reduceData(mapperResults);
+        // Map!
+        List<MapperResult> mapperResults = mapData(taskTracker, inputStream);
+        printTime("Mappers completed: ");
+        // Reduce!
+        List<ReducerResult> reducerResults = reduceData(taskTracker, mapperResults);
+        printTime("Reducers completed: ");
+        // Kill unnecessary threads
+        taskTracker.shutdown();
         
+        // Final data merging
         Map<String, Integer> unsortedResult = reducerResults.get(0).unsortedResult;
         SortedMap<String, Integer> result = reducerResults.get(0).result;
         
@@ -40,6 +49,7 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
             unsortedResult.putAll(reducerResults.get(i).unsortedResult);
             result.putAll(reducerResults.get(i).result);
         }
+        printTime("Final merge completed: ");
         
         // File out = new File("C:\\Users\\lishid\\Desktop\\output.csv");
         // out.createNewFile();
@@ -53,16 +63,11 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
         
         // printMemory();
         
-        // Cleanup
-        executorService.shutdown();
-        
         return result;
     }
     
-    private List<MapperResult> mapData(InputStream inputStream) throws Exception
+    private List<MapperResult> mapData(TaskTracker taskTracker, InputStream inputStream) throws Exception
     {
-        // Create mapper tasks
-        TaskTracker taskTracker = new TaskTracker(executorService);
         List<MapperResult> results = new ArrayList<MapperResult>();
         
         // Read data and dispatch
@@ -95,26 +100,22 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
             results.add(startMapper(taskTracker, buffer));
             buffer = null;
         }
-        printTime("Mappers dispatch complete: ");
+        // printTime("Mappers dispatch complete: ");
         // Wait until tasks are done
-        taskTracker.waitForTasks();
-        
-        printTime("Mappers all complete: ");
+        taskTracker.waitForTasksAndReset();
         return results;
     }
     
-    private List<ReducerResult> reduceData(List<MapperResult> input) throws Exception
+    private List<ReducerResult> reduceData(TaskTracker taskTracker, List<MapperResult> input) throws Exception
     {
-        TaskTracker taskTracker = new TaskTracker(executorService);
         List<ReducerResult> results = new ArrayList<ReducerResult>(AVAILABLE_CORES);
-        // Start running tasks
+        // Start tasks
         for (int i = 0; i < AVAILABLE_CORES; i++)
         {
             results.add(startReducer(taskTracker, input, i));
         }
         // Wait until tasks are done
-        taskTracker.waitForTasks();
-        printTime("Reducers all complete: ");
+        taskTracker.waitForTasksAndReset();
         return results;
     }
     
