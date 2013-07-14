@@ -7,6 +7,14 @@
 # Maven target directory
 target/
 
+# Eclipse project files
+.classpath
+.project
+.settings/
+
+# Xtend-generated files
+xtend-gen/
+
 # Big test files
 src/test/resources/Parking_Tags_Data_2012.csv
 src/test/resources/parking_tickets_data_2012.zip
