@@ -41,8 +41,6 @@ public class ParkingTicketsStatsTest {
         // DIRECTION (optional) = one of EAST, WEST, E, W, N, S
         //
         // NOTE: the street name should be extracted from the field location2 only.
-        System.out.println("king: "+streets.get("KING"));
-        System.out.println("st clair: "+streets.get("ST CLAIR"));
         assertThat(streets.get("KING"), closeTo(2570710));
         assertThat(streets.get("ST CLAIR"), closeTo(1871510));
         assertThat(streets.get(streets.firstKey()), closeTo(3781095));

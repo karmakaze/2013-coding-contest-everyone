@@ -4,14 +4,14 @@ import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.util.Comparator
+import java.util.HashMap
 import java.util.Map
-import java.util.Map.Entry
 import java.util.SortedMap
-import java.util.TreeMap
 import java.util.regex.Pattern
+import java.util.TreeMap
 
 class ParkingTicketsStats {
-	var static addr = new TreeMap<String,Integer>
+	var static addr = new HashMap<String,Integer>
 	
 	def static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
 		val reader = parkingTicketsStream.toBufferedReader
@@ -21,7 +21,10 @@ class ParkingTicketsStats {
 			var old = addr.put(extractStreet, extractPrice)
 			if(old!=null)addr.put(extractStreet,extractPrice+old)
 		]
-		return addr
+		val comp = new ValueComparator(addr)
+		val sorted_map = new TreeMap(comp)
+		sorted_map.putAll(addr)
+		return sorted_map
 	}
 	
 	def static toBufferedReader(InputStream stream){
@@ -50,8 +53,13 @@ class ParkingTicketsStats {
 	}
 }
 
-class ValueComparator implements Comparator<Map.Entry<String,Integer>>{	
-	override compare(Entry<String,Integer> o1, Entry<String,Integer> o2) {
-		return o1.value - o2.value
-	}
+class ValueComparator implements Comparator<String> {
+    Map<String, Integer> base;
+    new(Map<String, Integer> base) {
+        this.base = base;
+    }
+        
+    override def int compare(String a, String b) {
+        return base.get(b) - base.get(a);
+    }
 }
