@@ -4,21 +4,23 @@ import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.util.Comparator
-import java.util.HashMap
 import java.util.Map
 import java.util.SortedMap
-import java.util.regex.Pattern
 import java.util.TreeMap
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.regex.Pattern
 
 class ParkingTicketsStats {
-	var static addr = new HashMap<String,Integer>
+	var static addr = new ConcurrentHashMap<String,Integer>
 	
 	def static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
 		val reader = parkingTicketsStream.toBufferedReader
 		reader.readLine // skip header
-		reader.lines[
+		reader.linesConcurrent[
 			var it = split(",")
-			var old = addr.put(extractStreet, extractPrice)
+			var old = addr.putIfAbsent(extractStreet, extractPrice)
 			if(old!=null)addr.put(extractStreet,extractPrice+old)
 		]
 		val comp = new ValueComparator(addr)
@@ -51,6 +53,31 @@ class ParkingTicketsStats {
 		var line = ""
 		while((line = reader.readLine) != null){fn.apply(line)}
 	}
+	
+	def static linesConcurrent(BufferedReader reader, (String)=>void fn){
+		var line = ""
+		var s = Executors.newFixedThreadPool(4);
+		while((line = reader.readLine) != null){
+			s.execute(new LineProcessor(line, fn));
+		}
+		s.shutdown
+		s.awaitTermination(10,TimeUnit.SECONDS)
+	}
+}
+
+class LineProcessor implements Runnable{
+	String line
+	(String)=>void fn
+	
+	new(String line, (String)=>void fn){
+		this.line = line
+		this.fn = fn
+	}
+	
+	override run() {
+		fn.apply(line)
+	}
+	
 }
 
 class ValueComparator implements Comparator<String> {
