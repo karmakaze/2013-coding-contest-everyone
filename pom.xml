@@ -29,7 +29,6 @@
             <artifactId>slf4j-simple</artifactId>
             <version>1.7.2</version>
         </dependency>
-        <!-- Collections -->
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>

@@ -4,7 +4,6 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.regex.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.common.base.Function;
@@ -31,7 +30,7 @@ public class ParkingTicketsStats {
     public static final int ADDR_COLUMN = 7;
     public static final int FINE_COLUMN = 4;
 
-    private static final int NUM_WORKERS = 3;
+    private static final int NUM_WORKER_THREADS = 3;
 
     // Normalized name cache, makes it complete around 30% faster on my PC.
     private static ConcurrentHashMap<String, String> sStreetNameCache = new ConcurrentHashMap<>();
@@ -50,11 +49,12 @@ public class ParkingTicketsStats {
         // Throw away the line with the header
         parkingCsvReader.readLine();
 
+        // Set up communication with the threads
         LinkedBlockingQueue<ParkingTicketMessage> messageQueue = new LinkedBlockingQueue<>(4000);
-        CountDownLatch countDownLatch = new CountDownLatch(NUM_WORKERS);
+        CountDownLatch countDownLatch = new CountDownLatch(NUM_WORKER_THREADS);
 
         // Set up the threads
-        for(int i = 0; i < NUM_WORKERS; ++i) {
+        for(int i = 0; i < NUM_WORKER_THREADS; ++i) {
             new ParkingTicketWorker(countDownLatch, results, sStreetNameCache, messageQueue).start();
         }
 
@@ -85,9 +85,9 @@ public class ParkingTicketsStats {
 
         // Ordering by int value
         Ordering<Map.Entry<String, LongAdder>> entryOrdering = Ordering.natural()
-            .onResultOf(new Function<Map.Entry<String, LongAdder>, Integer>() {
-                public Integer apply(Map.Entry<String, LongAdder> entry) {
-                    return entry.getValue().intValue();
+            .onResultOf(new Function<Map.Entry<String, LongAdder>, Long>() {
+                public Long apply(Map.Entry<String, LongAdder> entry) {
+                    return entry.getValue().sum();
                 }
             }).reverse();
 
