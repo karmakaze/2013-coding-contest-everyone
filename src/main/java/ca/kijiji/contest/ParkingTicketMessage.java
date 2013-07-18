@@ -2,17 +2,17 @@ package ca.kijiji.contest;
 
 public class ParkingTicketMessage {
 
-    private String[] mTicketCols;
+    private String mTicket;
 
-    public ParkingTicketMessage(String[] ticketCols) {
-        mTicketCols = ticketCols;
+    public ParkingTicketMessage(String ticket) {
+        mTicket = ticket;
     }
 
-    public String[] getTicketCols() {
-        return mTicketCols;
+    public String getTicket() {
+        return mTicket;
     }
 
     public boolean isLastMessage() {
-        return mTicketCols == null;
+        return mTicket == null;
     }
 }
