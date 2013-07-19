@@ -1,43 +1,44 @@
 package ca.kijiji.contest;
 
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.primitives.Longs;
-import com.twitter.jsr166e.LongAdder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.primitives.Longs;
+import com.twitter.jsr166e.LongAdder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class ParkingTicketWorker extends Thread {
 
     private static final Logger LOG = LoggerFactory.getLogger(ParkingTicketWorker.class);
 
-    // Splits the CSV line into separate fields, *this will not work for field with escaped commas
+    // Splits the CSV line into separate fields, *this will not work for fields with escaped commas or quotes
     // and isn't compliant with the CSV spec!* But, only 23 such fields exist in the input, so we can be lazy.
     private static final Splitter FIELD_SPLITTER = Splitter.on(',');
 
-    public static final int ADDR_COLUMN = 7;
-    public static final int FINE_COLUMN = 4;
+    protected static final int ADDR_COLUMN = 7;
+    protected static final int FINE_COLUMN = 4;
 
     // Split the parts of the street name up
     private static final Splitter STREET_TOKENIZER = Splitter.on(' ').omitEmptyStrings();
     // Join the tokens back together
     private static final Joiner STREET_JOINER = Joiner.on(' ');
+
     // Regex to separate the street number from the street name
     // there need not be a street number, but it must be a combination of digits and punctuation with
-    // an optional letter at the end for apartments. (ex. 123/345, 12451&2412, 2412a, etc.)
+    // an optional letter at the end for apartments. (ex. 123/345, 12451&2412, 2412a, 33-44)
+    // Also handles junk street numbers like 222-, -33, !33, 1o2, l22
     private static final Pattern ADDR_REGEX =
-            Pattern.compile("^[^\\p{N}\\p{L}]*(?:(?<num>[\\p{N}\\-&/, ]*(?:\\p{N}\\p{L})?)\\s+)?(?<street>[\\p{N}\\p{L} \\.'-]+).*");
+            Pattern.compile("^[^\\p{N}\\p{L}]*((?<num>[\\p{N}ol\\-&/, ]*(\\p{N}\\p{L})?)\\s+)?(?<street>[\\p{N}\\p{L} \\.'-]+).*");
 
     // Set of directions a street may end with
     private static final ImmutableSet<String> DIRECTION_SET = ImmutableSet.of(
@@ -47,8 +48,8 @@ public class ParkingTicketWorker extends Thread {
 
     // Set of designators to remove from the end of street names (ST, ROAD, etc.)
     // The designation may be necessary for disambiguation, so it'd be *better* to normalize the designation,
-    // but this test requires no designations, so use a hash set of designations to ignore
-    public static final ImmutableSet<String> DESIGNATION_SET = ImmutableSet.of(
+    // but this test requires no designations, so use a set of designations to ignore
+    private static final ImmutableSet<String> DESIGNATION_SET = ImmutableSet.of(
             // mostly from the top of
             // `cut -d, -f8 Parking_Tags_Data_2012.csv | sed 's/\s+$//g' | awk -F' ' '{print $NF}' | sort | uniq -c | sort -n`
             "AV", "AVE", "AVENUE", "BL", "BLV", "BLVD", "BOULEVARD", "CIR", "CIRCLE", "CR", "CRCL", "CRCT", "CRES", "CRS",
@@ -60,7 +61,7 @@ public class ParkingTicketWorker extends Thread {
     );
 
 
-    // decrement this when we leave run()
+    // decrement this when we leave run(), means no running threads when at 0
     private final CountDownLatch mRunningCounter;
     // street name -> profit map
     private final ConcurrentMap<String, LongAdder> mStreetStats;
@@ -82,10 +83,14 @@ public class ParkingTicketWorker extends Thread {
             try {
 
                 // Wait for a new message
-                ParkingTicketMessage message = mMessageQueue.take();
+                ParkingTicketMessage message = mMessageQueue.poll();
 
-                if(message.isLastMessage()) {
-                    // It's the last message, rebroadcast to all the other consumers so they shut down as well.
+                // Noe message yet
+                if(message == null)
+                    continue;
+
+                // It's the last message, rebroadcast to all the other consumers so they shut down as well.
+                if(message == ParkingTicketMessage.END) {
                     mMessageQueue.put(message);
                     break;
                 }
@@ -100,10 +105,10 @@ public class ParkingTicketWorker extends Thread {
                 }
 
                 // Get the column containing the address of the infraction
-                String addr = ticketCols[ADDR_COLUMN];
+                String addr = ticketCols[ADDR_COLUMN].trim();
 
                 // If the address is empty, fetch the next address
-                if(StringUtils.isNullOrBlank(addr)) {
+                if(addr.isEmpty()) {
                     continue;
                 }
 
@@ -130,31 +135,46 @@ public class ParkingTicketWorker extends Thread {
     }
 
     protected String addrToStreetName(String addr) {
-        // split the address into street number and street name components
-        Matcher addrMatches = ADDR_REGEX.matcher(addr.toUpperCase().trim());
 
-        // this doesn't really look like an address...
-        if(!addrMatches.matches()) {
-            return null;
+        String streetName = null;
+        String streetCacheKey = null;
+
+        // Optimize for the common case of "NUM NAME DESIGNATION,"
+        // Regex matches are expensive! Try to get a cache hit without one.
+        if(Character.isDigit(addr.charAt(0))) {
+
+            // Get everything after the first space if there is one
+            int space_idx = addr.indexOf(' ');
+
+            if(space_idx != -1) {
+                //
+                String possStreetName = addr.substring(space_idx);
+                if(possStreetName.indexOf(' ') != -1) {
+                    streetCacheKey = possStreetName;
+                    streetName = mStreetNameCache.get(streetCacheKey);
+                }
+            }
         }
-
-        // Pull the full street name out of the address and check if we have the normalized name cached.
-        String fullStreetName = addrMatches.group("street");
-        String streetName = mStreetNameCache.get(fullStreetName);
 
         // No normalized version in the cache, calculate it
         if(streetName == null) {
 
-            String[] foo = new String[20];
+            // split the address into street number and street name components
+            Matcher addrMatches = ADDR_REGEX.matcher(addr);
+
+            // this doesn't really look like an address...
+            if(!addrMatches.matches()) {
+                return null;
+            }
 
             // Split the street up into tokens (may contain
-            ArrayList<String> streetToks = Lists.newArrayList(STREET_TOKENIZER.split(fullStreetName));
+            String[] streetToks = Iterables.toArray(STREET_TOKENIZER.split(addrMatches.group("street")), String.class);
 
             // Go backwards through the tokens and skip all the ones that aren't likely part of the actual name.
             int lastNameElem = 0;
 
-            for(int i = streetToks.size() - 1; i >= 0; --i) {
-                String tok = streetToks.get(i);
+            for(int i = streetToks.length - 1; i >= 0; --i) {
+                String tok = streetToks[i];
 
                 // There may be multiple direction tokens (N E, S E, etc.) but they never show up before a
                 // street designation. Stop looking at tokens as soon as we hit the first token that looks
@@ -164,20 +184,22 @@ public class ParkingTicketWorker extends Thread {
                 if(DESIGNATION_SET.contains(tok)) {
                     break;
                 }
-                // This is neither a direction nor a designation token, this is part of the street name!
+                // This is neither a direction nor a designation this is part of the street name!
                 // Bail out.
                 if(!DIRECTION_SET.contains(tok)) {
-                    lastNameElem += 1;
+                    // copyOf's range is non-inclusive, increment it so we include this element.
+                    ++lastNameElem;
                     break;
                 }
             }
 
+            // join together the tokens that make up the street's name
+            streetName = STREET_JOINER.join(Arrays.copyOf(streetToks, lastNameElem));
 
-            // get the fully built street name
-            streetName = STREET_JOINER.join(streetToks.subList(0, lastNameElem));
-
-            // add this street name to the cache
-            mStreetNameCache.putIfAbsent(fullStreetName, streetName);
+            // add this street name to the cache if it's cacheable
+            if(streetCacheKey != null) {
+                mStreetNameCache.putIfAbsent(streetCacheKey, streetName);
+            }
         }
 
         return streetName;
@@ -193,8 +215,7 @@ public class ParkingTicketWorker extends Thread {
             final LongAdder newFineTracker = new LongAdder();
             fineTracker = mStreetStats.putIfAbsent(streetName, newFineTracker);
 
-            // There *still* wasn't a fine tracker for this street in the map, the current tracker is the
-            // one we just tried to add.
+            // Nobody tried inserting one before we did, use the one we just inserted.
             if(fineTracker == null) {
                 fineTracker = newFineTracker;
             }

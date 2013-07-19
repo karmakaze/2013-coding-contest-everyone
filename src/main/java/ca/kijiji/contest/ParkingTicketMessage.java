@@ -2,7 +2,10 @@ package ca.kijiji.contest;
 
 public class ParkingTicketMessage {
 
-    private String mTicket;
+    // Marks the end of processing and signals threads to stop listening for messages
+    public static final ParkingTicketMessage END = new ParkingTicketMessage(null);
+
+    private final String mTicket;
 
     public ParkingTicketMessage(String ticket) {
         mTicket = ticket;
@@ -10,9 +13,5 @@ public class ParkingTicketMessage {
 
     public String getTicket() {
         return mTicket;
-    }
-
-    public boolean isLastMessage() {
-        return mTicket == null;
     }
 }

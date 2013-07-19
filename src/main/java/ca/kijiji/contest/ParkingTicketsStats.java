@@ -22,8 +22,6 @@ public class ParkingTicketsStats {
 
     private static final int CSV_BUFFER_SIZE = 20480;
 
-    private static final int NUM_WORKER_THREADS = 3;
-
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream)
             throws IOException, CSVException, InterruptedException {
@@ -36,11 +34,17 @@ public class ParkingTicketsStats {
         ConcurrentHashMap<String, LongAdder> results = new ConcurrentHashMap<>();
 
         // Set up communication with the threads
+        int num_threads = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
+
         LinkedBlockingQueue<ParkingTicketMessage> messageQueue = new LinkedBlockingQueue<>(4000);
-        CountDownLatch countDownLatch = new CountDownLatch(NUM_WORKER_THREADS);
+        CountDownLatch countDownLatch = new CountDownLatch(num_threads);
+
+        // NOTE: Dispatch using a ThreadPool and Runnable for each entry was 2 times slower than manually
+        // handling task dispatch, slower than the single-threaded version. Manually manage work dispatch
+        // with long-running threads.
 
         // Set up the threads
-        for(int i = 0; i < NUM_WORKER_THREADS; ++i) {
+        for(int i = 0; i < num_threads; ++i) {
             new ParkingTicketWorker(countDownLatch, results, streetNameCache, messageQueue).start();
         }
 
@@ -54,7 +58,7 @@ public class ParkingTicketsStats {
         }
 
         // Tell the worker threads we have nothing left
-        messageQueue.put(new ParkingTicketMessage(null));
+        messageQueue.put(ParkingTicketMessage.END);
 
         // Wait for them all to finish
         countDownLatch.await();
