@@ -17,23 +17,23 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
 {
     // Tweakable variables
     private static final int AVAILABLE_CORES = Runtime.getRuntime().availableProcessors();
-    private static final int MAPPER_CHUNK_SIZE = 20000;
+    private static int MAPPER_CHUNK_SIZE = 20000;
     
     // Debugging info
     private static long startTime;
     
     public SortedMap<String, Integer> sortStreetsByProfitability(InputStream inputStream) throws Exception
     {
-//        startTime = System.currentTimeMillis();
+        startTime = System.currentTimeMillis();
         // Create a TaskTracker to run and track MapReduceTasks
         TaskTracker taskTracker = new TaskTracker(Executors.newFixedThreadPool(AVAILABLE_CORES));
         
         // Map!
         List<MapperResult> mapperResults = mapData(taskTracker, inputStream);
-//        printTime("Mappers completed: ");
+        printTime("Mappers completed: ");
         // Reduce!
         List<ReducerResult> reducerResults = reduceData(taskTracker, mapperResults);
-//        printTime("Reducers completed: ");
+        printTime("Reducers completed: ");
         // Kill unnecessary threads
         taskTracker.shutdown();
         
@@ -46,17 +46,17 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
             unsortedResult.putAll(reducerResults.get(i).unsortedResult);
             result.putAll(reducerResults.get(i).result);
         }
-//        printTime("Final merge completed: ");
+        printTime("Final merge completed: ");
         
-//        File out = new File("C:\\Users\\lishid\\Desktop\\output.csv");
-//        out.createNewFile();
-//        PrintStream outPrintStream = new PrintStream(out);
-//        for (Entry<String, Integer> road : result.entrySet())
-//        {
-//            outPrintStream.println(road.getKey() + ": " + road.getValue());
-//        }
-//        outPrintStream.close();
-//        System.out.println(result.size());
+        // File out = new File("C:\\Users\\lishid\\Desktop\\output.csv");
+        // out.createNewFile();
+        // PrintStream outPrintStream = new PrintStream(out);
+        // for (Entry<String, Integer> road : result.entrySet())
+        // {
+        // outPrintStream.println(road.getKey() + ": " + road.getValue());
+        // }
+        // outPrintStream.close();
+        // System.out.println(result.size());
         
         // printMemory();
         
@@ -67,8 +67,6 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
     {
         List<MapperResult> results = new ArrayList<MapperResult>();
         
-        // TODO: Optimize this, move data chunking into map
-        // Read data and dispatch
         // Start reading. IO is slow anyway and can't really multithread it.
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
         // Throw away the header
@@ -87,6 +85,14 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
             {
                 results.add(startMapper(taskTracker, buffer));
                 // Reset buffer
+                if (taskTracker.startedTasks - taskTracker.finishedTasks < AVAILABLE_CORES)
+                {
+                    MAPPER_CHUNK_SIZE = 2000;
+                }
+                else
+                {
+                    MAPPER_CHUNK_SIZE = 20000;
+                }
                 buffer = new String[MAPPER_CHUNK_SIZE];
                 index = 0;
             }
@@ -98,7 +104,7 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
             results.add(startMapper(taskTracker, buffer));
             buffer = null;
         }
-        // printTime("Mappers dispatch complete: ");
+        printTime("Mappers dispatch complete: ");
         // Wait until tasks are done
         taskTracker.waitForTasksAndReset();
         return results;
@@ -112,6 +118,7 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
         {
             results.add(startReducer(taskTracker, input, i));
         }
+        printTime("Reducers dispatch complete: ");
         // Wait until tasks are done
         taskTracker.waitForTasksAndReset();
         return results;

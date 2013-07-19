@@ -5,8 +5,8 @@ import java.util.concurrent.ExecutorService;
 public class TaskTracker
 {
     private ExecutorService executorService;
-    private int startedTasks;
-    private int finishedTasks;
+    public int startedTasks;
+    public int finishedTasks;
     private boolean waitingForWake;
     
     /**

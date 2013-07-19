@@ -27,7 +27,7 @@ public class SingleThreadedProcessor implements IParkingTicketsStatsProcessor
         LineMappingResult lineMappingResult = new LineMappingResult();
         while ((line = reader.readLine()) != null)
         {
-            TicketStatsCalculations.mapLine(line, lineMappingResult);
+            TicketStatsCalculations.map(line, lineMappingResult);
             keys[index] = lineMappingResult.roadName;
             values[index] = lineMappingResult.amount;
             index++;
@@ -37,10 +37,10 @@ public class SingleThreadedProcessor implements IParkingTicketsStatsProcessor
         HashMap<String, Integer> result = new HashMap<String, Integer>();
         for (int i = 0; i < keys.length; i++)
         {
-            TicketStatsCalculations.reduceData(keys[i], values[i], result);
+            TicketStatsCalculations.combine(keys[i], values[i], result);
         }
         
-        SortedMap<String, Integer> resultMap = TicketStatsCalculations.sortData(result);
+        SortedMap<String, Integer> resultMap = TicketStatsCalculations.sort(result);
         printTime("Reducing complete: ");
         
         return resultMap;

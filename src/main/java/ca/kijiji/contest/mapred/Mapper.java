@@ -11,13 +11,13 @@ public class Mapper extends MapReduceTask
 {
     private String[] data;
     private MapperResult result;
-    private int reducers;
+    private int partitions;
     
     public Mapper(TaskTracker taskTracker, String[] data, int reducers)
     {
         super(taskTracker);
         this.data = data;
-        this.reducers = reducers;
+        this.partitions = reducers;
         result = new MapperResult();
     }
     
@@ -30,7 +30,7 @@ public class Mapper extends MapReduceTask
     public void performTask()
     {
         // Initiate result storage
-        for (int i = 0; i < reducers; i++)
+        for (int i = 0; i < partitions; i++)
         {
             result.result.add(new HashMap<String, Integer>());
         }
@@ -38,22 +38,23 @@ public class Mapper extends MapReduceTask
         // Process each line
         for (int i = 0; i < data.length; i++)
         {
-            // Mapper phase 1, generating key-values
             String line = data[i];
             
             if (line == null)
             {
                 break;
             }
-            
-            TicketStatsCalculations.mapLine(line, lineMappingResult);
-            
+
+            // Map
+            TicketStatsCalculations.map(line, lineMappingResult);
             String key = lineMappingResult.roadName;
             int value = lineMappingResult.amount;
+
+            // Partition
+            int partition = TicketStatsCalculations.getPartition(key.hashCode(), partitions);
             
-            // Mapper phase 2, reduce
-            int reducer = ((key.hashCode() % reducers) + reducers) % reducers;
-            TicketStatsCalculations.reduceData(key, value, result.result.get(reducer));
+            // Combine
+            TicketStatsCalculations.combine(key, value, result.result.get(partition));
         }
     }
     

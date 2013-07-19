@@ -40,11 +40,11 @@ public class Reducer extends MapReduceTask
             }
             else
             {
-                TicketStatsCalculations.reduceData(mapperResult.result.get(reducerNumber), reducerResult.unsortedResult);
+                TicketStatsCalculations.reduce(mapperResult.result.get(reducerNumber), reducerResult.unsortedResult);
             }
         }
         // Reducer phase 2: Sort data
-        reducerResult.result = TicketStatsCalculations.sortData(reducerResult.unsortedResult);
+        reducerResult.result = TicketStatsCalculations.sort(reducerResult.unsortedResult);
     }
     
     public static class ReducerResult

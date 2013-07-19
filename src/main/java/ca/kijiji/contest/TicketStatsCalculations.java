@@ -17,7 +17,7 @@ public class TicketStatsCalculations
         uselessWords.addAll(Arrays.asList(new String[] { "EAST", "WEST", "NORTH", "SOUTH", "WALK", "E", "W", "N", "S", "ST", "STR", "STREET", "TR", "AV", "AVE", "AVENUE", "CIR", "CIRCLE", "CT", "CRT", "COURT", "CR", "CRESCENT", "CRE", "RD", "ROAD", "DR", "DRIVE", "BLVD", "BOULEVARD", "BL", "BULVD", "LANE", "PL", "CRES", "TER", "TERR", "PARK", "PARKWAY", "WAY", "GDNS", "GARDEN", "GARDENS", "TRL", "TRAIL", "MALL" }));
     }
     
-    public static void mapLine(String line, LineMappingResult result)
+    public static void map(String line, LineMappingResult result)
     {
         if (line == null)
             return;
@@ -87,7 +87,7 @@ public class TicketStatsCalculations
         public int amount;
     }
     
-    public static void reduceData(String key, int value, Map<String, Integer> map)
+    public static void combine(String key, int value, Map<String, Integer> map)
     {
         if (map.containsKey(key))
         {
@@ -96,19 +96,24 @@ public class TicketStatsCalculations
         map.put(key, value);
     }
     
-    public static void reduceData(Map<String, Integer> input, Map<String, Integer> result)
+    public static void reduce(Map<String, Integer> input, Map<String, Integer> result)
     {
         for (Entry<String, Integer> entry : input.entrySet())
         {
-            reduceData(entry.getKey(), entry.getValue(), result);
+            combine(entry.getKey(), entry.getValue(), result);
         }
     }
     
-    public static SortedMap<String, Integer> sortData(Map<String, Integer> input)
+    public static SortedMap<String, Integer> sort(Map<String, Integer> input)
     {
         TreeMap<String, Integer> result = new TreeMap<String, Integer>(new ValueComparator(input));
         result.putAll(input);
         return result;
+    }
+    
+    public static int getPartition(int hashCode, int partitions)
+    {
+        return ((hashCode % partitions) + partitions) % partitions;
     }
     
     private static class ValueComparator implements Comparator<String>
