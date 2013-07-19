@@ -29,7 +29,7 @@ public class ParkingTicketsStats {
         BufferedReader parkingCsvReader = new BufferedReader(new InputStreamReader(parkingTicketsStream), CSV_BUFFER_SIZE);
 
         // Normalized name cache, makes it complete around 30% faster on my PC.
-        ConcurrentHashMap<String, String> streetNameCache = new ConcurrentHashMap<>();
+        StreetNameResolver streetNameResolver = new StreetNameResolver();
         // Use LongAdder instead of AtomicLong for performance
         ConcurrentHashMap<String, LongAdder> results = new ConcurrentHashMap<>();
 
@@ -45,7 +45,7 @@ public class ParkingTicketsStats {
 
         // Set up the threads
         for(int i = 0; i < num_threads; ++i) {
-            new ParkingTicketWorker(countDownLatch, results, streetNameCache, messageQueue).start();
+            new ParkingTicketWorker(countDownLatch, results, streetNameResolver, messageQueue).start();
         }
 
         // Throw away the line with the header
