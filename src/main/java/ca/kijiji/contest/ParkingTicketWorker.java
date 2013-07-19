@@ -1,16 +1,11 @@
 package ca.kijiji.contest;
 
 
-import java.util.Arrays;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Longs;
 import com.twitter.jsr166e.LongAdder;
@@ -20,10 +15,6 @@ import org.slf4j.LoggerFactory;
 public class ParkingTicketWorker extends Thread {
 
     private static final Logger LOG = LoggerFactory.getLogger(ParkingTicketWorker.class);
-
-    // Splits the CSV line into separate fields, *this will not work for fields with escaped commas or quotes
-    // and isn't compliant with the CSV spec!* But, only 23 such fields exist in the input, so we can be lazy.
-    private static final Splitter FIELD_SPLITTER = Splitter.on(',');
 
     protected static final int ADDR_COLUMN = 7;
     protected static final int FINE_COLUMN = 4;
@@ -63,7 +54,7 @@ public class ParkingTicketWorker extends Thread {
                 }
 
                 // Split the ticket into columns
-                String[] ticketCols = Iterables.toArray(FIELD_SPLITTER.split(message.getTicket()), String.class);
+                String[] ticketCols = StringUtils.splitPreserveNulls(message.getTicket(), ',');
 
                 // Is there even an address column we could read from?
                 if(ticketCols.length <= ADDR_COLUMN) {
@@ -101,6 +92,11 @@ public class ParkingTicketWorker extends Thread {
         _mRunningCounter.countDown();
     }
 
+    /**
+     * Add to the total fine for <code>streetName</code>
+     * @param streetName street the infraction occurred on
+     * @param fine fine to add to the street total
+     */
     protected void addFineTo(String streetName, long fine) {
         // Look for the map entry for this street's fines
         LongAdder fineTracker = _mStreetStats.get(streetName);
