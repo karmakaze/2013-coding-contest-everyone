@@ -21,13 +21,13 @@ public class Mapper extends MapReduceTask
         result = new MapperResult();
     }
     
-    public MapperResult getResult()
+    public MapperResult getFutureResult()
     {
         return result;
     }
     
     @Override
-    public void perform()
+    public void performTask()
     {
         // Initiate result storage
         for (int i = 0; i < reducers; i++)

@@ -21,13 +21,13 @@ public class Reducer extends MapReduceTask
         reducerResult = new ReducerResult();
     }
     
-    public ReducerResult getResult()
+    public ReducerResult getFutureResult()
     {
         return reducerResult;
     }
     
     @Override
-    public void perform()
+    public void performTask()
     {
         // Reducer phase 1: Reduce data
         reducerResult.unsortedResult = null;

@@ -14,7 +14,7 @@ public class TicketStatsCalculations
     static Set<String> uselessWords = new HashSet<String>();
     static
     {
-        uselessWords.addAll(Arrays.asList(new String[] { "EAST", "WEST", "NORTH", "SOUTH", "E", "W", "N", "S", "ST", "STREET", "AV", "AVE", "AVENUE", "CT", "CRT", "COURT", "CR", "CRESCENT", "CRE", "RD", "ROAD", "DR", "DRIVE", "BLVD", "BOULEVARD", "BL", "BULVD", "LANE", "PL", "CRES", "TER", "TERR", "PARK", "PARKWAY", "WAY", "GDNS", "GARDEN", "GARDENS", "TRL", "TRAIL", "MALL" }));
+        uselessWords.addAll(Arrays.asList(new String[] { "EAST", "WEST", "NORTH", "SOUTH", "WALK", "E", "W", "N", "S", "ST", "STR", "STREET", "TR", "AV", "AVE", "AVENUE", "CIR", "CIRCLE", "CT", "CRT", "COURT", "CR", "CRESCENT", "CRE", "RD", "ROAD", "DR", "DRIVE", "BLVD", "BOULEVARD", "BL", "BULVD", "LANE", "PL", "CRES", "TER", "TERR", "PARK", "PARKWAY", "WAY", "GDNS", "GARDEN", "GARDENS", "TRL", "TRAIL", "MALL" }));
     }
     
     public static void mapLine(String line, LineMappingResult result)
@@ -46,19 +46,19 @@ public class TicketStatsCalculations
         }
         // Multi word
         
-        int end = tokens.length - 1;
-        for (; end > 0; end--)
+        int start = 0;
+        for (; start < 1; start++)
         {
-            if (!uselessWords.contains(tokens[end]))
+            if (isAlpha(tokens[start]))
             {
                 break;
             }
         }
         
-        int start = 0;
-        for (; start < end; start++)
+        int end = tokens.length - 1;
+        for (; end > start; end--)
         {
-            if (isAlpha(tokens[start]))
+            if (!uselessWords.contains(tokens[end]))
             {
                 break;
             }

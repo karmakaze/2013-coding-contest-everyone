@@ -1,14 +1,11 @@
 package ca.kijiji.contest.mapred;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.concurrent.Executors;
 
@@ -20,23 +17,23 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
 {
     // Tweakable variables
     private static final int AVAILABLE_CORES = Runtime.getRuntime().availableProcessors();
-    private static final int MAPPER_LINES = 20000;
+    private static final int MAPPER_CHUNK_SIZE = 20000;
     
     // Debugging info
     private static long startTime;
     
     public SortedMap<String, Integer> sortStreetsByProfitability(InputStream inputStream) throws Exception
     {
-        startTime = System.currentTimeMillis();
+//        startTime = System.currentTimeMillis();
         // Create a TaskTracker to run and track MapReduceTasks
         TaskTracker taskTracker = new TaskTracker(Executors.newFixedThreadPool(AVAILABLE_CORES));
         
         // Map!
         List<MapperResult> mapperResults = mapData(taskTracker, inputStream);
-        printTime("Mappers completed: ");
+//        printTime("Mappers completed: ");
         // Reduce!
         List<ReducerResult> reducerResults = reduceData(taskTracker, mapperResults);
-        printTime("Reducers completed: ");
+//        printTime("Reducers completed: ");
         // Kill unnecessary threads
         taskTracker.shutdown();
         
@@ -49,17 +46,17 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
             unsortedResult.putAll(reducerResults.get(i).unsortedResult);
             result.putAll(reducerResults.get(i).result);
         }
-        printTime("Final merge completed: ");
+//        printTime("Final merge completed: ");
         
-        // File out = new File("C:\\Users\\lishid\\Desktop\\output.csv");
-        // out.createNewFile();
-        // PrintStream outPrintStream = new PrintStream(out);
-        // for (Entry<String, Integer> road : result.entrySet())
-        // {
-        // outPrintStream.println(road.getKey() + ": " + road.getValue());
-        // }
-        // outPrintStream.close();
-        // System.out.println(result.size());
+//        File out = new File("C:\\Users\\lishid\\Desktop\\output.csv");
+//        out.createNewFile();
+//        PrintStream outPrintStream = new PrintStream(out);
+//        for (Entry<String, Integer> road : result.entrySet())
+//        {
+//            outPrintStream.println(road.getKey() + ": " + road.getValue());
+//        }
+//        outPrintStream.close();
+//        System.out.println(result.size());
         
         // printMemory();
         
@@ -70,13 +67,14 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
     {
         List<MapperResult> results = new ArrayList<MapperResult>();
         
+        // TODO: Optimize this, move data chunking into map
         // Read data and dispatch
         // Start reading. IO is slow anyway and can't really multithread it.
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
         // Throw away the header
         reader.readLine();
-        // Partition the data into MAPPER_LINES lines
-        String[] buffer = new String[MAPPER_LINES];
+        // Partition the data into MAPPER_CHUNK_SIZE lines
+        String[] buffer = new String[MAPPER_CHUNK_SIZE];
         int index = 0;
         String line = null;
         while ((line = reader.readLine()) != null)
@@ -84,12 +82,12 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
             buffer[index] = line;
             index++;
             
-            // Partition it out
-            if (index == MAPPER_LINES)
+            // Partition it out TODO
+            if (index == MAPPER_CHUNK_SIZE)
             {
                 results.add(startMapper(taskTracker, buffer));
                 // Reset buffer
-                buffer = new String[MAPPER_LINES];
+                buffer = new String[MAPPER_CHUNK_SIZE];
                 index = 0;
             }
         }
@@ -123,14 +121,14 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor
     {
         Mapper mapper = new Mapper(taskTracker, data, AVAILABLE_CORES);
         taskTracker.startTask(mapper);
-        return mapper.getResult();
+        return mapper.getFutureResult();
     }
     
     private ReducerResult startReducer(TaskTracker taskTracker, List<MapperResult> mapperResults, int reducerNumber)
     {
         Reducer reducer = new Reducer(taskTracker, mapperResults, reducerNumber);
         taskTracker.startTask(reducer);
-        return reducer.getResult();
+        return reducer.getFutureResult();
     }
     
     // Util

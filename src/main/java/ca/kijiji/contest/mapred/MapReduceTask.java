@@ -14,7 +14,7 @@ public abstract class MapReduceTask implements Runnable
     {
         try
         {
-            perform();
+            performTask();
         }
         catch (Exception e)
         {
@@ -23,5 +23,5 @@ public abstract class MapReduceTask implements Runnable
         taskTracker.finishTask();
     }
     
-    public abstract void perform();
+    public abstract void performTask();
 }
