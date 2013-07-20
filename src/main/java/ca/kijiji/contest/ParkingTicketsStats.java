@@ -6,6 +6,8 @@ import java.io.InputStreamReader;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import ca.kijiji.contest.exceptions.InvalidRowException;
+
 import au.com.bytecode.opencsv.CSVReader;
 
 public class ParkingTicketsStats {
@@ -21,21 +23,30 @@ public class ParkingTicketsStats {
 		String[] ticketData = null;
 		
 		CSVNamedRow namedRow = new CSVNamedRow(ticketReader.readNext());
-		System.out.println(namedRow);
-		int counter = 0;
 		while ((ticketData = ticketReader.readNext()) != null) {
-			System.out.println(namedRow.getField(ticketData, LOCATION_FIELD_NAME));
-			System.out.println(namedRow.getField(ticketData, FINE_AMOUNT_FIELD_NAME));
-			if (counter == 15) {
-				break;
+			try {
+				String location = namedRow.getField(ticketData, LOCATION_FIELD_NAME);
+				int fineAmount = getFineAmount(namedRow, ticketData);
 			}
-			++counter;
+			catch(InvalidRowException ire) {
+				continue;
+			}
 		}
-		
 		ticketReader.close();
-//		int fineAmount = Integer.parseInt(ticket.get(4));
-//		String location = ticket.get(7);
 //		String street = StreetParser.parseStreet(location);
         return streetToFeeSum;
+    }
+    
+    // TODO: Make these non-static functions and use instance vars.
+    private static int getFineAmount(CSVNamedRow namedRow, String[] ticketData) throws InvalidRowException {
+		int fineAmount = 0;
+		try {
+			fineAmount = namedRow.getIntegerField(ticketData, FINE_AMOUNT_FIELD_NAME);
+		}
+		catch(NumberFormatException nfe) {
+			System.out.println(String.format("Invalid fee amount: %s", nfe.getMessage()));
+			throw new InvalidRowException();
+		}
+		return fineAmount;    	    	
     }
 }
