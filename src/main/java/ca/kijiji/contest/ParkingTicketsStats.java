@@ -11,10 +11,12 @@ import org.slf4j.*;
 import com.google.common.collect.*;
 import com.twitter.jsr166e.LongAdder;
 
+import ca.kijiji.contest.ticketworkers.*;
+
 // The input is pretty dirty (that nasty business wasn't a joke!) so you can expect things like "YONGE STRET",
-// "PENGARTH CROUT" and "BEVERLEY ST BLOCKING PRIVATE DRWY" That would normally be fixed with a manual once-over...
-// but let's pretend we have good data, These errors are small enough not to cause huge problems with the data.
-// Take a look with cut -d, -f8 Parking_Tags_Data_2012.csv | sed 's/\s+$//g' | awk -F' ' '{print $NF}' | sort | uniq -c | sort -nr
+// "PENGARTH CROUT" and "BEVERLEY ST BLOCKING PRIVATE DRWY" (maybe you shouldn't have put it there)
+// That would normally be fixed with a manual once-over... but let's pretend we have good data, These errors
+// are small enough not to cause huge problems with the data.
 
 public class ParkingTicketsStats {
 
@@ -31,43 +33,43 @@ public class ParkingTicketsStats {
         // Normalized name cache, makes it complete around 30% faster on my PC.
         StreetNameResolver streetNameResolver = new StreetNameResolver();
         // Use LongAdder instead of AtomicLong for performance
-        ConcurrentHashMap<String, LongAdder> results = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, LongAdder> stats = new ConcurrentHashMap<>();
 
         // Set up communication with the threads
-        int num_threads = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
+        int num_threads = Math.max(2, Runtime.getRuntime().availableProcessors() - 1);
 
-        LinkedBlockingQueue<ParkingTicketMessage> messageQueue = new LinkedBlockingQueue<>(4000);
+        LinkedBlockingQueue<String> messageQueue = new LinkedBlockingQueue<>(4000);
         CountDownLatch countDownLatch = new CountDownLatch(num_threads);
 
         // NOTE: Dispatch using a ThreadPool and Runnable for each entry was 2 times slower than manually
         // handling task dispatch, slower than the single-threaded version. Manually manage work dispatch
         // with long-running threads.
 
-        // Set up the threads
+        // Set up the worker threads
         for(int i = 0; i < num_threads; ++i) {
-            new ParkingTicketWorker(countDownLatch, results, streetNameResolver, messageQueue).start();
+            new ParkingTicketWorker(countDownLatch, stats, streetNameResolver, messageQueue).start();
         }
 
         // Throw away the line with the header
         parkingCsvReader.readLine();
 
-        // Keep reading lines til we hit EOF (forgive my C-isms)
+        // Keep sending lines to workers til we hit EOF (excuse my C-isms)
         String parkingTicketLine;
         while((parkingTicketLine = parkingCsvReader.readLine()) != null) {
-            messageQueue.put(new ParkingTicketMessage(parkingTicketLine));
+            messageQueue.put(parkingTicketLine);
         }
 
         // Tell the worker threads we have nothing left
-        messageQueue.put(ParkingTicketMessage.END);
+        messageQueue.put(ParkingTicketWorker.END_MSG);
 
         // Wait for them all to finish
         countDownLatch.await();
 
         // Return an immutable map of the stats sorted by value
-        return reorderStatsMap(results);
+        return freezeAndOrderStatsMap(stats);
     }
 
-    protected static SortedMap<String, Integer> reorderStatsMap(Map<String, LongAdder> stats) {
+    protected static SortedMap<String, Integer> freezeAndOrderStatsMap(Map<String, LongAdder> stats) {
 
         // Order by value, descending
         Ordering<Map.Entry<String, LongAdder>> entryOrdering = Ordering.natural()

@@ -5,6 +5,8 @@ public class StringUtils {
         return str == null || str.trim().isEmpty();
     }
 
+    // The split / join implementations from Apache Commons are much faster / better
+    // for our purposes than Guava Joiners / Splitters. No need to massage arrays.
     public static String[] split(String str, char sep) {
         return org.apache.commons.lang.StringUtils.split(str, sep);
     }

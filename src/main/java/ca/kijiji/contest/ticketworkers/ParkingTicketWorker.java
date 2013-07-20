@@ -1,12 +1,12 @@
-package ca.kijiji.contest;
+package ca.kijiji.contest.ticketworkers;
 
 
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import com.google.common.base.Splitter;
-import com.google.common.collect.Iterables;
+import ca.kijiji.contest.StreetNameResolver;
+import ca.kijiji.contest.StringUtils;
 import com.google.common.primitives.Longs;
 import com.twitter.jsr166e.LongAdder;
 import org.slf4j.Logger;
@@ -19,6 +19,9 @@ public class ParkingTicketWorker extends Thread {
     protected static final int ADDR_COLUMN = 7;
     protected static final int FINE_COLUMN = 4;
 
+    // Message that marks the end of processing
+    public static final String END_MSG = "\n\n\n";
+
     // decrement this when we leave run(), means no running threads when at 0
     private final CountDownLatch _mRunningCounter;
     // street name -> profit map
@@ -26,46 +29,47 @@ public class ParkingTicketWorker extends Thread {
     // Normalized name cache, makes it complete around 30% faster on my PC.
     private final StreetNameResolver _mStreetNameResolver;
     // How the main thread communicates with us
-    private final LinkedBlockingQueue<ParkingTicketMessage> _mMessageQueue;
+    private final LinkedBlockingQueue<String> _mMessageQueue;
 
     public ParkingTicketWorker(CountDownLatch counter, ConcurrentMap<String, LongAdder> statsMap,
-                               StreetNameResolver nameCacheMap, LinkedBlockingQueue<ParkingTicketMessage> queue) {
+                               StreetNameResolver nameCacheMap, LinkedBlockingQueue<String> queue) {
         _mRunningCounter = counter;
         _mStreetStats = statsMap;
         _mStreetNameResolver = nameCacheMap;
         _mMessageQueue = queue;
     }
 
-    public void run ()  {
+    public void run () {
         while(true) {
             try {
 
-                // Wait for a new message
-                ParkingTicketMessage message = _mMessageQueue.poll();
+                // Block until we have a new message
+                String message;
+                while((message =  _mMessageQueue.poll()) == null){
 
-                // Noe message yet
-                if(message == null)
-                    continue;
+                }
 
                 // It's the last message, rebroadcast to all the other consumers so they shut down as well.
-                if(message == ParkingTicketMessage.END) {
+                if(message == END_MSG) {
                     _mMessageQueue.put(message);
                     break;
                 }
 
-                // Split the ticket into columns
-                String[] ticketCols = StringUtils.splitPreserveNulls(message.getTicket(), ',');
+                // Split the ticket into columns, this isn't CSV compliant and will
+                // fail on columns with escaped values. There's less than 100 of those
+                // the test data, so take the extra performance instead of handling escaping.
+                String[] ticketCols = StringUtils.splitPreserveNulls(message, ',');
 
                 // Is there even an address column we could read from?
                 if(ticketCols.length <= ADDR_COLUMN) {
-                    LOG.warn(String.format("Line had too few columns: %s", message.getTicket()));
+                    LOG.warn(String.format("Line had too few columns: %s", message));
                     continue;
                 }
 
                 // Get the column containing the address of the infraction
                 String addr = ticketCols[ADDR_COLUMN].trim();
 
-                // If the address is empty, fetch the next address
+                // We can't do anything if there's no address, fetch the next ticket
                 if(addr.isEmpty()) {
                     continue;
                 }
@@ -86,7 +90,7 @@ public class ParkingTicketWorker extends Thread {
                     LOG.warn(String.format("Couldn't parse address: %s", addr));
                 }
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                return;
             }
         }
         _mRunningCounter.countDown();
