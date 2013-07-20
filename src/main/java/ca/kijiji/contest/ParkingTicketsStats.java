@@ -4,9 +4,9 @@ import java.io.InputStream;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.*;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class ParkingTicketsStats {
 
@@ -20,7 +20,8 @@ public class ParkingTicketsStats {
     // Save a string allocation by using a final blank string for replacement when cleaning street names
     private static final String BLANK = "";
 
-    private static ArrayBlockingQueue<String> lineQueue = new ArrayBlockingQueue<String>(INPUT_QUEUE_LENGTH);
+    // Kind of shocked that ArrayBlockingQueue isn't faster, but testing and the docs say LinkedBlockingQueue is fastest
+    private static BlockingQueue<String> lineQueue = new LinkedBlockingQueue<String>(INPUT_QUEUE_LENGTH);
     private static SortedMap<String, Integer> output = new ConcurrentSkipListMap<String, Integer>();
 
     // Build the cleaning regex only once
@@ -107,8 +108,8 @@ public class ParkingTicketsStats {
                         stats.put(street, currentSum+cost);
                     }
                     catch(InterruptedException e) {
-                        // An interruption means the Queue AND the source file are empty, (Or that the program was
-                        // halted with a ctrl-c or something) so this threads work is done.
+                        // An interruption means the Queue AND the source file are empty, Or that the program was
+                        // halted with a ctrl-c or something, Either way, this threads work is done.
                         break;
                     }
                 }
@@ -138,7 +139,7 @@ public class ParkingTicketsStats {
             }
 
             // Once we've finished reading the lines in, wait until the threads have consumed all available lines
-            while (lineQueue.peek() != null) {
+            while (!lineQueue.isEmpty()) {
                 Thread.sleep(50);
             }
 
