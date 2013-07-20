@@ -16,6 +16,10 @@ public class CSVNamedRow {
 		return row[_fieldNameToIndex.get(fieldName)];
 	}
 	
+	public int getIntegerField(String[] row, String fieldName) throws NumberFormatException {
+		return Integer.parseInt(this.getField(row, fieldName));
+	}
+	
 	public String toString() {
 		return _fieldNameToIndex.toString();
 	}
