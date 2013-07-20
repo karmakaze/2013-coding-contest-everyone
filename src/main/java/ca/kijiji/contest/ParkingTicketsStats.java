@@ -1,6 +1,5 @@
 package ca.kijiji.contest;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -12,7 +11,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 public class ParkingTicketsStats {
 
     private static final int THREAD_COUNT = 5;
-    private static final int FILE_INPUT_BUFFER_SIZE = 262144;
+    private static final int FILE_INPUT_BUFFER_SIZE = 2621440;
     private static final int INPUT_QUEUE_LENGTH = 5000;
 
     private static final int FINE_AMOUNT_COLUMN = 4;
@@ -24,6 +23,7 @@ public class ParkingTicketsStats {
     private static ArrayBlockingQueue<String> lineQueue = new ArrayBlockingQueue<String>(INPUT_QUEUE_LENGTH);
     private static SortedMap<String, Integer> output = new ConcurrentSkipListMap<String, Integer>();
 
+    // Build the cleaning regex only once
     private static final String cleaningRegex = buildRegex();
     private static final String buildRegex() {
         // Programmatically building a regex through string concatenation... and now I have TWO problems!
@@ -38,7 +38,6 @@ public class ParkingTicketsStats {
         suffixRegex.deleteCharAt(suffixRegex.length() - 1);
         suffixRegex.append(")*$");
         String baseRegex = "[^A-Z\\s]+";
-        // baseRegex = baseRegex + "|\u0003";
         String result = baseRegex + suffixRegex;
         return result;
     }
@@ -49,23 +48,20 @@ public class ParkingTicketsStats {
 
     // Thanks to http://hmkcode.com/sorting-java-map-by-key-value/
     // Sneakily reorders a map by value instead of key
-    public static SortedMap sortByValue(Map unsortedMap){
+    public static SortedMap<String, Integer> sortByValue(Map<String, Integer> unsortedMap){
 
-        class ValueComparator implements Comparator {
-            Map map;
+        class ValueComparator<String> implements Comparator<String> {
+            Map<String, Integer> map;
 
-            public ValueComparator(Map map){
+            public ValueComparator(Map<String, Integer> map){
                 this.map = map;
             }
 
-            public int compare(Object keyA, Object keyB) {
-                Comparable valueA = (Comparable) map.get(keyA);
-                Comparable valueB = (Comparable) map.get(keyB);
-                return valueB.compareTo(valueA);
+            public int compare(String keyA, String keyB) {
+                return map.get(keyB).compareTo(map.get(keyA));
             }
         }
-
-        SortedMap sortedMap = new TreeMap(new ValueComparator(unsortedMap));
+        SortedMap<String, Integer> sortedMap = new TreeMap<String, Integer>(new ValueComparator<String>(unsortedMap));
         sortedMap.putAll(unsortedMap);
         return sortedMap;
     }
@@ -74,7 +70,11 @@ public class ParkingTicketsStats {
 
         class FileScanner extends Thread {
 
-            private String line;
+            // Prevent as many allocations in our execution loop as we can
+            private String line, street;
+            private Integer currentSum;
+            private int cost;
+
             private final BlockingQueue<String> inputQueue;
             private final SortedMap<String, Integer> stats;
 
@@ -86,26 +86,31 @@ public class ParkingTicketsStats {
 
             public void run() {
                 while(true) {
-
                     // Continue grabbing lines off the queue until interrupted by the parent (indicating an empty queue)
                     try {
                         line = inputQueue.take();
+
+                        // Now we've got the line, split it and grab the address and costs
+                        String[] values = line.split(",");
+
+                        // Get a normalized version of the street name, and skip it if it ends up being blank
+                        street = cleanStreet(values[STREET_ADDRESS_COLUMN]);
+                        if (street == "") continue;
+
+                        // Get the ticket cost as an integer
+                        cost = Integer.parseInt(values[FINE_AMOUNT_COLUMN]);
+
+                        // Update the stats in the map, Technically there's a race condition here but hey, we don't have
+                        // to be perfect, right? We'd probably only ever lose a handful of ticket values, if any.
+                        currentSum = stats.get(street);
+                        if (currentSum == null) currentSum = 0;
+                        stats.put(street, currentSum+cost);
                     }
                     catch(InterruptedException e) {
-                        // An interruption means the Queue AND the source file are empty, so this threads work is done.
+                        // An interruption means the Queue AND the source file are empty, (Or that the program was
+                        // halted with a ctrl-c or something) so this threads work is done.
                         break;
                     }
-                    // Now we've got the line, split it and grab the address and costs
-                    String[] values = line.split(",");
-                    int cost = Integer.parseInt(values[FINE_AMOUNT_COLUMN]);
-                    String street = cleanStreet(values[STREET_ADDRESS_COLUMN]);
-                    if (street == "") continue;
-
-                    // Update the stats in the map, Technically there's a race condition here but hey, we don't have
-                    // to be perfect, right? We'd probably only ever lose a handful of ticket values, if any.
-                    Integer currentSum = stats.get(street);
-                    if (currentSum == null) currentSum = 0;
-                    stats.put(street, currentSum+cost);
                 }
             }
         }
@@ -119,8 +124,8 @@ public class ParkingTicketsStats {
         }
 
         try {
-            // Buffer up to 256KB
-            BufferedReader inputFile = new BufferedReader(new InputStreamReader(parkingTicketsStream), FILE_INPUT_BUFFER_SIZE);
+            BufferedReader inputFile = new BufferedReader(new InputStreamReader(parkingTicketsStream),
+                    FILE_INPUT_BUFFER_SIZE);
 
             // Skip the header line for the input stream
             inputFile.readLine();
@@ -143,10 +148,8 @@ public class ParkingTicketsStats {
                 fs.join();
             }
         }
-        catch (IOException e) {
-            return null;
-        }
-        catch (InterruptedException e) {
+        catch (Exception e) {
+            e.printStackTrace();
             return null;
         }
 
