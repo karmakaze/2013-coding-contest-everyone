@@ -2,18 +2,16 @@ package ca.kijiji.contest.mapred;
 
 import java.util.concurrent.ExecutorService;
 
-public class TaskTracker
-{
+public class TaskTracker {
     private ExecutorService executorService;
-    public int startedTasks;
-    public int finishedTasks;
+    private int startedTasks;
+    private int finishedTasks;
     private boolean waitingForWake;
     
     /**
      * TaskTracker uses an ExecutorService to run MapReduceTask and provides an easy way of waiting until all tasks finish
      */
-    public TaskTracker(ExecutorService executorService)
-    {
+    public TaskTracker(ExecutorService executorService) {
         this.executorService = executorService;
         reset();
     }
@@ -21,27 +19,21 @@ public class TaskTracker
     /**
      * Shuts down the underlying executor service
      */
-    public void shutdown()
-    {
+    public void shutdown() {
         executorService.shutdown();
     }
     
     /**
      * Blocks current thread until all tasks are finished, then reset the task tracker.
      */
-    public void waitForTasksAndReset() throws InterruptedException
-    {
-        while (true)
-        {
-            synchronized (this)
-            {
-                if (startedTasks != finishedTasks)
-                {
+    public void waitForTasksAndReset() throws InterruptedException {
+        while (true) {
+            synchronized (this) {
+                if (startedTasks != finishedTasks) {
                     waitingForWake = true;
                     this.wait();
                 }
-                else
-                {
+                else {
                     waitingForWake = false;
                     break;
                 }
@@ -53,8 +45,7 @@ public class TaskTracker
     /**
      * Start a new task. Note: This is not synchronized. All tasks should be started from the same thread.
      */
-    public void startTask(MapReduceTask task)
-    {
+    public void startTask(MapReduceTask task) {
         startedTasks++;
         executorService.submit(task);
     }
@@ -62,21 +53,17 @@ public class TaskTracker
     /**
      * Called from individual tasks to indicate they finished execution.
      */
-    public void finishTask()
-    {
-        synchronized (this)
-        {
+    public void finishTask() {
+        synchronized (this) {
             finishedTasks++;
             // Wake the main thread up if needed
-            if (waitingForWake && startedTasks == finishedTasks)
-            {
+            if (waitingForWake && startedTasks == finishedTasks) {
                 notify();
             }
         }
     }
     
-    private void reset()
-    {
+    private void reset() {
         startedTasks = 0;
         finishedTasks = 0;
         waitingForWake = false;

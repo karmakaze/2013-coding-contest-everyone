@@ -1,23 +1,17 @@
 package ca.kijiji.contest.mapred;
 
-
-public abstract class MapReduceTask implements Runnable
-{
+public abstract class MapReduceTask implements Runnable {
     private TaskTracker taskTracker;
     
-    public MapReduceTask(TaskTracker taskTracker)
-    {
+    public MapReduceTask(TaskTracker taskTracker) {
         this.taskTracker = taskTracker;
     }
     
-    public void run()
-    {
-        try
-        {
+    public void run() {
+        try {
             performTask();
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             e.printStackTrace();
         }
         taskTracker.finishTask();

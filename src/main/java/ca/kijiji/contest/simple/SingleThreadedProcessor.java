@@ -8,14 +8,12 @@ import java.util.SortedMap;
 
 import ca.kijiji.contest.IParkingTicketsStatsProcessor;
 import ca.kijiji.contest.TicketStatsCalculations;
-import ca.kijiji.contest.TicketStatsCalculations.LineMappingResult;
+import ca.kijiji.contest.TicketStatsCalculations.MapResult;
 
-public class SingleThreadedProcessor implements IParkingTicketsStatsProcessor
-{
+public class SingleThreadedProcessor implements IParkingTicketsStatsProcessor {
     static long startTime;
     
-    public SortedMap<String, Integer> sortStreetsByProfitability(InputStream inputStream) throws Exception
-    {
+    public SortedMap<String, Integer> sortStreetsByProfitability(InputStream inputStream) throws Exception {
         startTime = System.currentTimeMillis();
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
         // Throw away the header
@@ -24,19 +22,17 @@ public class SingleThreadedProcessor implements IParkingTicketsStatsProcessor
         int[] values = new int[2746154];
         String line = null;
         int index = 0;
-        LineMappingResult lineMappingResult = new LineMappingResult();
-        while ((line = reader.readLine()) != null)
-        {
+        MapResult lineMappingResult = new MapResult();
+        while ((line = reader.readLine()) != null) {
             TicketStatsCalculations.map(line, lineMappingResult);
-            keys[index] = lineMappingResult.roadName;
-            values[index] = lineMappingResult.amount;
+            keys[index] = lineMappingResult.key;
+            values[index] = lineMappingResult.value;
             index++;
         }
         reader.close();
         printTime("Mapping complete: ");
         HashMap<String, Integer> result = new HashMap<String, Integer>();
-        for (int i = 0; i < keys.length; i++)
-        {
+        for (int i = 0; i < keys.length; i++) {
             TicketStatsCalculations.combine(keys[i], values[i], result);
         }
         
@@ -46,8 +42,7 @@ public class SingleThreadedProcessor implements IParkingTicketsStatsProcessor
         return resultMap;
     }
     
-    public static void printTime(String text)
-    {
+    public static void printTime(String text) {
         long newTime = System.currentTimeMillis();
         System.out.println(text + (newTime - startTime));
         startTime = newTime;
