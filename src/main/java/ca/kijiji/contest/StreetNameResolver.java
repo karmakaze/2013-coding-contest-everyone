@@ -44,7 +44,7 @@ public class StreetNameResolver {
             // mostly from the top of
             // `cut -d, -f8 Parking_Tags_Data_2012.csv | sed 's/\s+$//g' | awk -F' ' '{print $NF}' | sort | uniq -c | sort -n`
             "AV", "AVE", "AVENUE", "BL", "BLV", "BLVD", "BOULEVARD", "CIR", "CIRCLE", "CR", "CRCL", "CRCT", "CRES", "CRS",
-            "CRST", "CRESCENT", "CT", "CRT", "COURT", "D", "DR", "DRIVE", "GARDEN", "GDN", "GDNS", "GARDENS", "GR", "GRDNS",
+            "CRST", "CRESCENT", "CT", "CRT", "COURT", "D", "DR", "DRIVE", "GATE", "GARDEN", "GDN", "GDNS", "GARDENS", "GR", "GRDNS",
             "GROVE", "GRV", "GT", "HGHTS", "HEIGHTS", "HTS", "HILL", "LN", "LANE", "MANOR", "MEWS", "PARKWAY", "PK", "PKWY",
             "PRK", "PL", "PLCE", "PLACE", "PROMENADE", "QUAY", "RD", "ROAD", "ST", "STR", "SQ", "SQUARE", "STREET", "T", "TER",
             "TERR", "TERRACE", "TR", "TRL", "TRAIL", "VISTA", "V", "WAY", "WY", "WOOD"
@@ -83,7 +83,7 @@ public class StreetNameResolver {
             // Get just the street *name* from the street
             streetName = _isolateStreetName(addrMatches.group("street"));
 
-            // Add the street name to the cache. We don't really if this gets clobbered,
+            // Add the street name to the cache. We don't really care if this gets clobbered,
             // we put in the same val for a key no matter what.
             _mStreetCache.put(streetCacheKey, streetName);
         }
@@ -114,7 +114,7 @@ public class StreetNameResolver {
                 // A street number may end in a lowercase letter but never in an uppercase letter.
                 // all street names use uppercase letters.
                 if (Character.isUpperCase(addr.charAt(space_idx - 1))) {
-                    // This is a street name, return as-is.
+                    // This is probably a street name, return as-is.
                     return addr;
                 }
 
@@ -123,6 +123,7 @@ public class StreetNameResolver {
             }
         }
 
+        //Doesn't start with a digit, probably starts with a street name
         return addr;
     }
 

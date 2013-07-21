@@ -19,7 +19,7 @@ public abstract class AbstractTicketWorker extends Thread {
     // Message that marks the end of processing.
     public static final String END_MSG = "\n\n\n";
 
-    // decrement this when we leave run(), means no running threads when at 0
+    // decrement this when we leave run(), means no running worker threads when at 0
     protected final CountDownLatch _mRunningCounter;
 
     // How the main thread communicates with us
@@ -45,7 +45,7 @@ public abstract class AbstractTicketWorker extends Thread {
 
                 // It's the last message, rebroadcast to all the other consumers so they shut down as well.
                 if(message == END_MSG) {
-                    _mMessageQueue.put(message);
+                    _mMessageQueue.put(END_MSG);
                     break;
                 }
 
@@ -55,7 +55,7 @@ public abstract class AbstractTicketWorker extends Thread {
                 String[] ticketCols = StringUtils.splitPreserveAllTokens(message, ',');
 
                 // Is this line properly formed? (This check will fail on valid CSVs
-                // with variable column numbers)
+                // with variable column numbers and embedded commas)
                 if(ticketCols.length != NUM_CSV_COLS) {
 
                     // Process the CSV line *properly*
@@ -64,6 +64,7 @@ public abstract class AbstractTicketWorker extends Thread {
                     // Do we have the correct number of columns now?
                     if(ticketCols.length != NUM_CSV_COLS) {
 
+                        // Print an error and skip to the next line
                         String msg = String.format("Expected %d columns, got %d (invalid tickets file?):\n%s",
                                 NUM_CSV_COLS, ticketCols.length, message);
                         LOG.warn(msg);

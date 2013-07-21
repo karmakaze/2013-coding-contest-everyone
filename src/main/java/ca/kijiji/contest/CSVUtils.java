@@ -2,14 +2,25 @@ package ca.kijiji.contest;
 
 import java.util.ArrayList;
 
+// Just for fun, something to handle those 20 lines in the CSV with escaped lines,
+// doesn't handle escaped newlines since readLine() would destroy them and the CSV
+// doesn't have any :).
 public class CSVUtils {
 
     private CSVUtils() { }
 
-    // Just for fun, something to handle those 20 lines in the CSV with escaped lines,
-    // doesn't handle escaped newlines since readLine() would destroy them and the CSV
-    // doesn't have any :)
+    /**
+     * Parse a pseudo-CSV formatted line
+     * @param csvLine pseudo-CSV formatted line
+     * @return Unescaped columns parsed from csvLine
+     */
     public static String[] parseCSVLine(String csvLine) {
+
+        // The last field may contain a newline sequence, throw it out since we can't
+        // handle them properly.
+        if(csvLine.endsWith("\r\n")) {
+            csvLine = csvLine.substring(0, csvLine.length() - 2);
+        }
 
         ArrayList<String> csvCols = new ArrayList<>();
 
@@ -45,12 +56,12 @@ public class CSVUtils {
                             insideQuotes = false;
                             skipChar = true;
                         }
-                        // This is an escaped quote, add it to the builder and skip past the second quote.
+                        // This is an escaped quote. Print this one, but skip the following quote.
                         else {
                             i = nextQuoteCheck;
                         }
                     } else {
-                        // We're not in a quoted field... is this quote at the field start?
+                        // We're not in a quoted field... is this quote at the start of the field?
                         if(i == fieldStart) {
                             // That means this is a quoted field.
                             insideQuotes = true;
@@ -58,14 +69,13 @@ public class CSVUtils {
                             skipChar = true;
                         }
 
-                        // If it isn't at the field start and this isn't a quoted field, we keep the quote as-is.
+                        // If it isn't at the field start and this isn't a quoted field, we print the quote as-is.
                     }
                     break;
 
                 case ',':
-                    // This is a field-ending comma
                     if(!insideQuotes) {
-                        // Append the string-ified field to our array of fields.
+                        // This is a field-ending comma. Add the string-ified field to our list of fields.
                         csvCols.add(colBuilder.toString());
                         colBuilder = new StringBuilder();
                         skipChar = true;
