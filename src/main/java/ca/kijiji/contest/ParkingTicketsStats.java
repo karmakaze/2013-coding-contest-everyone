@@ -2,62 +2,45 @@ package ca.kijiji.contest;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 import java.util.SortedMap;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.csvreader.CsvReader;
 
-import ca.kijiji.contest.exceptions.InvalidRowException;
 import ca.kijiji.contest.exceptions.UnparseableLocationException;
 
-import au.com.bytecode.opencsv.CSVReader;
+// import au.com.bytecode.opencsv.CSVReader;
 
 public class ParkingTicketsStats {
 
-	private static final Logger LOG = LoggerFactory.getLogger(ParkingTicketsStats.class);
-	
 	public static final String FINE_AMOUNT_FIELD_NAME = "set_fine_amount";
 	public static final String LOCATION_FIELD_NAME = "location2";
 
 
-    public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) throws IOException {
-		SortedMap<String, Integer> streetToFeeSum = new SortedCountMap<String, Integer>();
-		
-		CSVReader ticketReader = new CSVReader(new InputStreamReader(parkingTicketsStream));
+    public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) throws IOException {    	
+    	SortedMap<String, Integer> streetToFineSum = new SortedCountMap<String, Integer>();
+		CsvReader ticketReader = new CsvReader(parkingTicketsStream, Charset.defaultCharset());
 		
 		String[] ticketData = null;
+
+		// TODO: Make util to get fields by name.
+		// TODO: Catch exception when parsing int fails.		
+		ticketReader.readRecord();
 		
-		CSVNamedRow namedRow = new CSVNamedRow(ticketReader.readNext());
-		while ((ticketData = ticketReader.readNext()) != null) {
+		while (ticketReader.readRecord()) {
 			try {
-				String location = namedRow.getField(ticketData, LOCATION_FIELD_NAME);
-				int fineAmount = getFineAmount(namedRow, ticketData);
+				ticketData = ticketReader.getValues();
+				String location = ticketData[7];				
+				int fineAmount = Integer.parseInt(ticketData[4]);
 				String street = parseStreet(location);
-  				streetToFeeSum.put(street, fineAmount);
-			}
-			catch(InvalidRowException ire) {
-				continue;
+  				streetToFineSum.put(street, fineAmount);
 			}
 			catch(UnparseableLocationException ule) {
-				LOG.info(ule.toString());
+				continue;
 			}
 		}
 		ticketReader.close();
-        return streetToFeeSum;
-    }
-    
-    // TODO: Make these non-static functions and use instance vars.
-    private static int getFineAmount(CSVNamedRow namedRow, String[] ticketData) throws InvalidRowException {
-		int fineAmount = 0;
-		try {
-			fineAmount = namedRow.getIntegerField(ticketData, FINE_AMOUNT_FIELD_NAME);
-		}
-		catch(NumberFormatException nfe) {
-			System.out.println(String.format("Invalid fee amount: %s", nfe.getMessage()));
-			throw new InvalidRowException();
-		}
-		return fineAmount;    	    	
+        return streetToFineSum;
     }
     
     public static String parseStreet(String location) throws UnparseableLocationException {
@@ -102,7 +85,9 @@ public class ParkingTicketsStats {
         boolean hasStreetSuffixAndDirection = numLocationParts == 3 &&
 											  !Character.isDigit(locationParts[0].charAt(0));
         
-        // TODO: What if 2 word street and suffix?
+        boolean hasTwoWordStreetAndSuffix = numLocationParts == 3 &&
+        								    !Character.isDigit(locationParts[0].charAt(0)) &&
+        									SuffixDirectionEquilizer.isSuffix(locationParts[2]); 
         
         // 2 parts
         boolean hasStreetAndSuffix = numLocationParts == 2;
@@ -131,9 +116,12 @@ public class ParkingTicketsStats {
         else if (hasStreetSuffixAndDirection || hasStreetAndSuffix || hasStreetOnly) {
         	return locationParts[0];
         }
+        else if (hasTwoWordStreetAndSuffix) {
+        	return String.format("%s %s", locationParts[0], locationParts[1]);
+        }
         else {
         	throw new UnparseableLocationException(location);
         }
     }
-    
+
 }
