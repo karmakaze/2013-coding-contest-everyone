@@ -16,7 +16,7 @@ public class ParkingTicketsStats {
 	public static final String LOCATION_FIELD_NAME = "location2";
 	
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) throws IOException {
-		SortedMap<String, Integer> streetToFeeSum = new TreeMap<String, Integer>();
+		SortedMap<String, Integer> streetToFeeSum = new SortedCountMap<String, Integer>();
 		
 		CSVReader ticketReader = new CSVReader(new InputStreamReader(parkingTicketsStream));
 		
@@ -27,13 +27,14 @@ public class ParkingTicketsStats {
 			try {
 				String location = namedRow.getField(ticketData, LOCATION_FIELD_NAME);
 				int fineAmount = getFineAmount(namedRow, ticketData);
+				String street = parseStreet(location);
+				streetToFeeSum.put(street, fineAmount);
 			}
 			catch(InvalidRowException ire) {
 				continue;
 			}
 		}
 		ticketReader.close();
-//		String street = StreetParser.parseStreet(location);
         return streetToFeeSum;
     }
     
@@ -48,5 +49,18 @@ public class ParkingTicketsStats {
 			throw new InvalidRowException();
 		}
 		return fineAmount;    	    	
+    }
+    
+    public static String parseStreet(String location) {
+    	
+    	// Special case for those weird streets.
+        if (location == "THE QUEENSWAY" || location == "THE KINGSWAY" ||
+                location == "THE WEST MALL" || location == "THE EAST MALL") {
+                return location;
+        }
+        String[] location_parts = location.split(" ");
+        int numLocationParts = location_parts.length;
+        
+        return location;
     }
 }
