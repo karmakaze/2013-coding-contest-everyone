@@ -9,8 +9,7 @@ import com.csvreader.CsvReader;
 
 import ca.kijiji.contest.exceptions.UnparseableLocationException;
 
-// import au.com.bytecode.opencsv.CSVReader;
-
+// TODO: Remove unused class files.
 public class ParkingTicketsStats {
 
 	public static final String FINE_AMOUNT_FIELD_NAME = "set_fine_amount";
