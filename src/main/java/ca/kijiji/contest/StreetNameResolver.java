@@ -4,8 +4,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.google.common.base.Joiner;
+import ca.kijiji.contest.ticketworkers.StreetFineTabulator;
 import com.google.common.collect.ImmutableSet;
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.*;
 
 /**
  * Resolves addresses to street names
@@ -13,18 +15,21 @@ import com.google.common.collect.ImmutableSet;
  */
 public class StreetNameResolver {
 
+    private static final Logger LOG = LoggerFactory.getLogger(StreetFineTabulator.class);
+
     // Regex to separate the street number from the street name
     // there need not be a street number, but it must be a combination of digits and punctuation with
-    // an optional letter at the end for apartments. (ex. 123/345, 12451&2412, 2412a, 33-44, 235-a)
+    // an optional letter at the end for apartments. (ex. "123/345", "12451&2412", "2412a", "33-44", "235-a", "22, 77b")
     // Also handles junk street numbers (like 222-, -33, !33, 1o2, l22) because they aren't important
-
-    // Whoever released this dataset is a sadist.
-    private static final String STREET_NUM_REGEX = "(?<num>[\\p{N}ol\\-&/, ]*(\\p{N}(-?\\p{L}))?)\\s+";
+    // OCR must have been used for some of the data entry o's and l's are mixed with 0s and 1s. We consider lower-case
+    // letters to be part of the street number since that's the only place they show up. Street names are all upper-case.
+    // Whoever released this dataset as-is is a sadist.
+    private static final String STREET_NUM_REGEX = "(?<num>[\\p{N}\\p{Ll}\\-&/, ]*)";
     private static final String STREET_NAME_REGEX = "(?<street>[\\p{N}\\p{L} \\.'-]*)";
 
     //Ignore garbage at the beginning and end of the string and pull out the street numbers / names
     private static final Pattern ADDR_REGEX =
-            Pattern.compile("^[^\\p{N}\\p{L}]*(" + STREET_NUM_REGEX + ")?" + STREET_NAME_REGEX + ".*");
+            Pattern.compile("^[^\\p{N}\\p{L}]*(" + STREET_NUM_REGEX + "\\s+)?" + STREET_NAME_REGEX + ".*");
 
     // Set of directions a street may end with
     private static final ImmutableSet<String> DIRECTION_SET = ImmutableSet.of(
@@ -49,20 +54,20 @@ public class StreetNameResolver {
     // Map of cache-friendly addresses to their respective street names
     private ConcurrentHashMap<String, String> _mStreetCache = new ConcurrentHashMap<>();
 
-    public StreetNameResolver() {}
+    public StreetNameResolver() {
+
+    }
 
     /**
      * Get a street name (ex: FAKE) from an address (ex: 123 FAKE ST W)
      */
     public String addrToStreetName(String addr) {
 
-        String streetName = null;
-
         // Try to remove the street number from the front so we're more likely to get a cache hit
         String streetCacheKey = _getCacheableAddress(addr);
 
         // We have a valid cache key, check if we have a cached name
-        streetName = _mStreetCache.get(streetCacheKey);
+        String streetName = _mStreetCache.get(streetCacheKey);
 
         // No normalized version in the cache, calculate it
         if(streetName == null) {
@@ -70,7 +75,7 @@ public class StreetNameResolver {
             // Split the address into street number and street name components
             Matcher addrMatches = ADDR_REGEX.matcher(addr);
 
-            // Hmmm, this doesn't really look like an address...
+            // Hmmm, this doesn't really look like an address, bail out.
             if(!addrMatches.matches()) {
                 return null;
             }
@@ -78,9 +83,8 @@ public class StreetNameResolver {
             // Get just the street *name* from the street
             streetName = _isolateStreetName(addrMatches.group("street"));
 
-            // Add the street name to the cache
-            // no putIfAbsent since we don't really care about it getting
-            // clobbered, we put in the same val for a key no matter what.
+            // Add the street name to the cache. We don't really if this gets clobbered,
+            // we put in the same val for a key no matter what.
             _mStreetCache.put(streetCacheKey, streetName);
         }
 
@@ -88,8 +92,8 @@ public class StreetNameResolver {
     }
 
     /**
-     * Get a cacheable version of this address for street name lookups by cutting off the
-     * Street number (if there is one.)
+     * Get a cacheable version of this address for street name lookups by lopping off the
+     * Street number (if we can.)
      * Results in a 17% speed increase over always running the regex and using group("street").
      *
      * This optimizes for the common case of NUMBER STREET DESIGNATION? DIRECTION?
@@ -97,22 +101,21 @@ public class StreetNameResolver {
     private String _getCacheableAddress(String addr) {
         // Regex matches are expensive! Try to get a cache hit without one.
         // Remove the street number from the start of the address if there is one.
+
+        // charAt() probably doesn't work right with surrogate pairs.
+        // Luckily, we don't need to support hieroglyphs.
         if(Character.isDigit(addr.charAt(0))) {
 
             // Check where the first space is
             int space_idx = addr.indexOf(' ');
 
             if(space_idx != -1) {
-                // A letter on the end of the first token may be an apartment number,
-                // (an address like "1234-a FOO ST")
-                // but a letter as the second-last character is likely part of the name
-                // (an address like "12TH ST" or "123RD ST")
-                if (space_idx > 3) {
-                    // Yep, there's a letter as the second-last character in the first token.
-                    // Address starts with the street name.
-                    if(Character.isLetter(addr.charAt(space_idx - 2))) {
-                        return addr;
-                    }
+
+                // A street number may end in a lowercase letter but never in an uppercase letter.
+                // all street names use uppercase letters.
+                if (Character.isUpperCase(addr.charAt(space_idx - 1))) {
+                    // This is a street name, return as-is.
+                    return addr;
                 }
 
                 // Lop off (what I hope is) the street number and return the rest
@@ -155,6 +158,6 @@ public class StreetNameResolver {
         }
 
         // join together the tokens that make up the street's name and return
-        return StringUtils.join(streetToks, ' ', lastNameElem);
+        return StringUtils.join(streetToks, ' ', 0, lastNameElem);
     }
 }

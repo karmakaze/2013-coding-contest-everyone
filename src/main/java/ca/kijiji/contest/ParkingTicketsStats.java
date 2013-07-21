@@ -47,29 +47,31 @@ public class ParkingTicketsStats {
 
         // Set up the worker threads
         for(int i = 0; i < num_threads; ++i) {
-            new ParkingTicketWorker(countDownLatch, stats, streetNameResolver, messageQueue).start();
+            new StreetFineTabulator(countDownLatch, messageQueue, stats, streetNameResolver).start();
         }
 
         // Throw away the line with the header
         parkingCsvReader.readLine();
 
         // Keep sending lines to workers til we hit EOF (excuse my C-isms)
+        // It's not valid to read CSVs this way according to the spec, but none
+        // of the columns contain escaped newlines.
         String parkingTicketLine;
         while((parkingTicketLine = parkingCsvReader.readLine()) != null) {
             messageQueue.put(parkingTicketLine);
         }
 
         // Tell the worker threads we have nothing left
-        messageQueue.put(ParkingTicketWorker.END_MSG);
+        messageQueue.put(StreetFineTabulator.END_MSG);
 
         // Wait for them all to finish
         countDownLatch.await();
 
         // Return an immutable map of the stats sorted by value
-        return freezeAndOrderStatsMap(stats);
+        return _freezeAndOrderStatsMap(stats);
     }
 
-    protected static SortedMap<String, Integer> freezeAndOrderStatsMap(Map<String, LongAdder> stats) {
+    protected static SortedMap<String, Integer> _freezeAndOrderStatsMap(Map<String, LongAdder> stats) {
 
         // Order by value, descending
         Ordering<Map.Entry<String, LongAdder>> entryOrdering = Ordering.natural()
