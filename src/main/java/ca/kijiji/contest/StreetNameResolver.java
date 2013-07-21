@@ -72,7 +72,7 @@ public class StreetNameResolver {
         // No normalized version in the cache, calculate it
         if(streetName == null) {
 
-            // Split the address into street number and street name components
+            // Split the address into street number and street components
             Matcher addrMatches = ADDR_REGEX.matcher(addr);
 
             // Hmmm, this doesn't really look like an address, bail out.
@@ -98,7 +98,7 @@ public class StreetNameResolver {
      *
      * This optimizes for the common case of NUMBER STREET DESIGNATION? DIRECTION?
      */
-    private String _getCacheableAddress(String addr) {
+    private static String _getCacheableAddress(String addr) {
         // Regex matches are expensive! Try to get a cache hit without one.
         // Remove the street number from the start of the address if there is one.
 
@@ -130,27 +130,28 @@ public class StreetNameResolver {
      * Get *just* the street name from a street
      * */
     private String _isolateStreetName(String street) {
-        // Split the street up into tokens (may contain
+
+        // Split the street up into tokens
         String[] streetToks = StringUtils.split(street, ' ');
 
         // Go backwards through the tokens and skip all the ones that aren't likely part of the actual name.
         int lastNameElem = 0;
 
-        for(int i = streetToks.length - 1; i >= 0; --i) {
+        for(int i = streetToks.length - 1; i > -1; --i) {
             String tok = streetToks[i];
 
             lastNameElem = i;
 
             // There may be multiple direction tokens (N E, S E, etc.) but they never show up before a
             // street designation. Stop looking at tokens as soon as we hit the first token that looks
-            // like a street designation otherwise we'll mangle names like "HILL STREET"
+            // like a street designation, otherwise we'll mangle names like "HILL STREET"
             // streets like "GROVE" with no designator will get mangled, but junk in junk out.
             if(DESIGNATION_SET.contains(tok)) {
                 break;
             }
-            // This is neither a direction nor a designation, this is part of the street name!
+            // This token is neither a direction nor a designation, this is part of the street name!
             // Bail out.
-            if(!DIRECTION_SET.contains(tok)) {
+            else if(!DIRECTION_SET.contains(tok)) {
                 // join's range is non-inclusive, increment it so this token is included in the street name
                 ++lastNameElem;
                 break;
