@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+// TODO: Add javadocs everywhere!
 public class ImmutableSortedByValueMap extends TreeMap<String, Integer> implements SortedMap<String, Integer> {
 
 	private static final long serialVersionUID = 2250896562281350467L;

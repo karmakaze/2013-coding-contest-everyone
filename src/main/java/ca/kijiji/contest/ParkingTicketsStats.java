@@ -22,21 +22,26 @@ public class ParkingTicketsStats {
 		
 		String[] ticketData = null;
 
+		// TODO: Make Iterator for CSVReader?
 		// TODO: Make util to get fields by name.
-		// TODO: Catch exception when parsing int fails.		
 		ticketReader.readRecord();
+		CSVNamedRow namedRow = new CSVNamedRow(ticketReader.getValues());		
 		
 		while (ticketReader.readRecord()) {
 			try {
 				ticketData = ticketReader.getValues();
-				String location = ticketData[7];				
-				int fineAmount = Integer.parseInt(ticketData[4]);
+				String location = namedRow.getField(ticketData, "location2");
+				int fineAmount = namedRow.getIntegerField(ticketData, "set_fine_amount");
 				String street = parseStreet(location);
   				streetToFineSum.put(street, fineAmount);
 			}
 			catch(UnparseableLocationException ule) {
 				continue;
 			}
+			catch (NumberFormatException nfe) {
+				// Invalid fine amount in file.
+				continue;
+			}				
 		}
 		ticketReader.close();
         return new ImmutableSortedByValueMap(streetToFineSum);
@@ -52,7 +57,6 @@ public class ParkingTicketsStats {
         String[] locationParts = location.split(" ");
         int numLocationParts = locationParts.length;
 
-        // TODO: Go through cases and make sure you take into account 2 word streets.
         // 5 parts
         boolean hasAllPartsPlusTwoWordStreetName = numLocationParts == 5 &&
         										   SuffixDirectionEquilizer.isSuffix(locationParts[3]) &&
@@ -66,13 +70,18 @@ public class ParkingTicketsStats {
 		           .equals("THE WEST MALL"));
 
 		boolean hasNumStreetSuffixAndDirection = numLocationParts == 4 && 
+												 Character.isDigit(locationParts[0].charAt(0)) &&
         										 SuffixDirectionEquilizer.isSuffix(locationParts[2]) &&
         										 SuffixDirectionEquilizer.isDirection(locationParts[3]);
         
         boolean hasNumTwoWordStreetAndSuffix = numLocationParts == 4 &&
         									   SuffixDirectionEquilizer.isSuffix(locationParts[3]);
         
-      
+        boolean hasTwoWordStreetSuffixAndDirection = numLocationParts == 4 &&
+        											 !Character.isDigit(locationParts[0].charAt(0)) &&
+        											 SuffixDirectionEquilizer.isSuffix(locationParts[2]) &&
+            										 SuffixDirectionEquilizer.isDirection(locationParts[3]);
+        
         // 3 parts
         boolean hasNumAndSpecialWays = numLocationParts == 3 &&
         							   (String.format("%s %s", locationParts[1], locationParts[2]).equals("THE QUEENSWAY") ||
@@ -89,9 +98,11 @@ public class ParkingTicketsStats {
         									SuffixDirectionEquilizer.isSuffix(locationParts[2]); 
         
         // 2 parts
-        boolean hasStreetAndSuffix = numLocationParts == 2;
+        boolean hasStreetAndSuffix = numLocationParts == 2 &&
+        							 SuffixDirectionEquilizer.isSuffix(locationParts[1]);
         
-        // TODO: What if 2 word street and nothing else?
+        boolean hasTwoWordStreetOnly = numLocationParts == 2 &&
+        							   !SuffixDirectionEquilizer.isSuffix(locationParts[1]);
         
         // 1 part
         boolean hasStreetOnly = numLocationParts == 1;
@@ -115,7 +126,7 @@ public class ParkingTicketsStats {
         else if (hasStreetSuffixAndDirection || hasStreetAndSuffix || hasStreetOnly) {
         	return locationParts[0];
         }
-        else if (hasTwoWordStreetAndSuffix) {
+        else if (hasTwoWordStreetSuffixAndDirection || hasTwoWordStreetOnly || hasTwoWordStreetAndSuffix) {
         	return String.format("%s %s", locationParts[0], locationParts[1]);
         }
         else {

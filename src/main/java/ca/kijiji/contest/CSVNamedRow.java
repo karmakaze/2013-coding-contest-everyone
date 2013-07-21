@@ -3,6 +3,7 @@ package ca.kijiji.contest;
 import java.util.HashMap;
 import java.util.Map;
 
+
 public class CSVNamedRow {
 	private Map<String, Integer> _fieldNameToIndex = new HashMap<String, Integer>();
 	
