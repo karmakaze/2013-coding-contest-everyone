@@ -16,7 +16,7 @@ public class ParkingTicketsStats {
 	public static final String LOCATION_FIELD_NAME = "location2";
 
 
-    public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) throws IOException {    	
+    public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) throws IOException {
     	SortedMap<String, Integer> streetToFineSum = new SortedCountMap<String, Integer>();
 		CsvReader ticketReader = new CsvReader(parkingTicketsStream, Charset.defaultCharset());
 		
@@ -39,7 +39,7 @@ public class ParkingTicketsStats {
 			}
 		}
 		ticketReader.close();
-        return streetToFineSum;
+        return new ImmutableSortedByValueMap(streetToFineSum);
     }
     
     public static String parseStreet(String location) throws UnparseableLocationException {
