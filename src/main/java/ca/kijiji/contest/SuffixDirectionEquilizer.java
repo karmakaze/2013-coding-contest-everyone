@@ -15,6 +15,7 @@ public class SuffixDirectionEquilizer {
         SUFFIX_EQUIV_MAP.put("ST", "STREET");
         SUFFIX_EQUIV_MAP.put("AV", "AVENUE");
         SUFFIX_EQUIV_MAP.put("AVE", "AVENUE");
+        SUFFIX_EQUIV_MAP.put("AVENUE", "AVENUE");
         SUFFIX_EQUIV_MAP.put("DR", "DRIVE");
         SUFFIX_EQUIV_MAP.put("DRIVE", "DRIVE");
         SUFFIX_EQUIV_MAP.put("LANE", "LANE");
@@ -40,6 +41,7 @@ public class SuffixDirectionEquilizer {
         SUFFIX_EQUIV_MAP.put("PARK", "PARK");
         SUFFIX_EQUIV_MAP.put("PK", "PARK");
         SUFFIX_EQUIV_MAP.put("QUAY", "QUAY");
+        SUFFIX_EQUIV_MAP.put("QUY", "QUAY");
         SUFFIX_EQUIV_MAP.put("COURT", "COURT");
         SUFFIX_EQUIV_MAP.put("CT", "COURT");
         SUFFIX_EQUIV_MAP.put("CRT", "COURT");

@@ -18,7 +18,13 @@ public class CSVNamedRow {
 	}
 	
 	public int getIntegerField(String[] row, String fieldName) throws NumberFormatException {
-		return Integer.parseInt(this.getField(row, fieldName));
+		try {
+			return Integer.parseInt(this.getField(row, fieldName));
+		}
+		catch (NumberFormatException nfe) {
+			String actualValue = this.getField(row, fieldName);
+			throw new NumberFormatException(String.format("Unable to parse field %s: %s", fieldName, actualValue));
+		}
 	}
 	
 	public String toString() {
