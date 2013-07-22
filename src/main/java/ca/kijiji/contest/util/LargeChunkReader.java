@@ -4,28 +4,29 @@ import java.io.IOException;
 import java.io.Reader;
 
 /**
- * Used to read a large chunk of char array
+ * Used to read large chunks from a Reader and splitting the output at line terminators.
  * 
  * @author lishid
  */
-public class ChunkReader {
+public class LargeChunkReader {
     private Reader input;
+    /** Used to store the beginning of the last cut-off chunk of chars */
     private char[] chunkBuffer;
     private int chunkBufferSize;
     
-    public ChunkReader(Reader input) {
+    public LargeChunkReader(Reader input) {
         this.input = input;
     }
     
     /**
-     * Reads the input by chunk of determined size, partition at newlines '\r', '\n', and "\r\n"
+     * Reads the input by chunk of determined size and partition (cut off) at line terminators.
      * 
      * @param buffer
-     *            The output of the data
+     *            The output buffer of the data
      * @return The number of characters read, or -1 if the end of the stream has been reached
      * @throws IOException
      */
-    public int readChunkByLine(char[] buffer) throws IOException {
+    public int readChunk(char[] buffer) throws IOException {
         int bufferIndex = 0;
         
         // Copy previous chunkBuffer to buffer

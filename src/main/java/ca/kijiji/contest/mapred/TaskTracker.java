@@ -43,6 +43,14 @@ public class TaskTracker {
     }
     
     /**
+     * Find out how many tasks are queued or running. Note that this is not synchronized for performance boost
+     * @return number of tasks that have not sent in termination signals
+     */
+    public int getUnfinishedTasks() {
+        return startedTasks - finishedTasks;
+    }
+    
+    /**
      * Start a new task. Note: This is not synchronized. All tasks should be started from the same thread.
      */
     public void startTask(MapReduceTask task) {

@@ -6,7 +6,7 @@ import java.util.SortedMap;
 
 public class Main {
     public static void main(String[] args) throws Exception {
-        // For profiling
+        // For profilers
         // System.in.read();
         
         int totalTime = 0;

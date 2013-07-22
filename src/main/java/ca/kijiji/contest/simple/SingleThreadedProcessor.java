@@ -7,8 +7,8 @@ import java.util.HashMap;
 import java.util.SortedMap;
 
 import ca.kijiji.contest.IParkingTicketsStatsProcessor;
-import ca.kijiji.contest.TicketStatsCalculations;
-import ca.kijiji.contest.TicketStatsCalculations.MapResult;
+import ca.kijiji.contest.CommonCalculations;
+import ca.kijiji.contest.CommonCalculations.MapResult;
 
 public class SingleThreadedProcessor implements IParkingTicketsStatsProcessor {
     static long startTime;
@@ -24,7 +24,7 @@ public class SingleThreadedProcessor implements IParkingTicketsStatsProcessor {
         int index = 0;
         MapResult lineMappingResult = new MapResult();
         while ((line = reader.readLine()) != null) {
-            TicketStatsCalculations.map(line, lineMappingResult);
+            CommonCalculations.map(line, lineMappingResult);
             keys[index] = lineMappingResult.key;
             values[index] = lineMappingResult.value;
             index++;
@@ -33,10 +33,10 @@ public class SingleThreadedProcessor implements IParkingTicketsStatsProcessor {
         printTime("Mapping complete: ");
         HashMap<String, Integer> result = new HashMap<String, Integer>();
         for (int i = 0; i < keys.length; i++) {
-            TicketStatsCalculations.combine(keys[i], values[i], result);
+            CommonCalculations.combine(keys[i], values[i], result);
         }
         
-        SortedMap<String, Integer> resultMap = TicketStatsCalculations.sort(result);
+        SortedMap<String, Integer> resultMap = CommonCalculations.sort(result);
         printTime("Reducing complete: ");
         
         return resultMap;

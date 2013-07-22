@@ -17,5 +17,5 @@ public abstract class MapReduceTask implements Runnable {
         taskTracker.finishTask();
     }
     
-    public abstract void performTask();
+    public abstract void performTask() throws Exception;
 }

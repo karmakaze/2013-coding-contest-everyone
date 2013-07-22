@@ -4,15 +4,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 
-import ca.kijiji.contest.TicketStatsCalculations;
-import ca.kijiji.contest.mapred.Mapper.MapperResultCollector;
+import ca.kijiji.contest.CommonCalculations;
+import ca.kijiji.contest.mapred.MapTask.MapperResultCollector;
 
-public class Reducer extends MapReduceTask {
+public class ReduceTask extends MapReduceTask {
     List<MapperResultCollector> mapperResults;
     int partition;
     ReducerResultCollector resultCollector;
     
-    public Reducer(TaskTracker taskTracker, List<MapperResultCollector> mapperResults, int partition) {
+    public ReduceTask(TaskTracker taskTracker, List<MapperResultCollector> mapperResults, int partition) {
         super(taskTracker);
         this.mapperResults = mapperResults;
         this.partition = partition;
@@ -22,10 +22,15 @@ public class Reducer extends MapReduceTask {
     public ReducerResultCollector getFutureResult() {
         return resultCollector;
     }
-    
+
+    /**
+     * The reducer task: <br>
+     * Take all mapper results for the same reducer partition and reduce it together. <br>
+     * Sort the data before returning it. <br>
+     */
     @Override
-    public void performTask() {
-        // Reducer phase 1: Reduce data
+    public void performTask() throws Exception {
+        // Reduce phase 1: Reduce data
         resultCollector.unsortedResult = null;
         for (MapperResultCollector mapperResult : mapperResults) {
             if (mapperResult.partitionedResult == null) {
@@ -36,11 +41,12 @@ public class Reducer extends MapReduceTask {
                 resultCollector.unsortedResult = mapperResult.partitionedResult.get(partition);
             }
             else {
-                TicketStatsCalculations.reduce(mapperResult.partitionedResult.get(partition), resultCollector.unsortedResult);
+                CommonCalculations.reduce(mapperResult.partitionedResult.get(partition), resultCollector.unsortedResult);
             }
         }
-        // Reducer phase 2: Sort data
-        resultCollector.result = TicketStatsCalculations.sort(resultCollector.unsortedResult);
+        
+        // Reduce phase 2: Sort data
+        resultCollector.result = CommonCalculations.sort(resultCollector.unsortedResult);
     }
     
     public static class ReducerResultCollector {
