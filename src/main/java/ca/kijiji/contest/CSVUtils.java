@@ -2,9 +2,9 @@ package ca.kijiji.contest;
 
 import java.util.ArrayList;
 
-// Just for fun, something to handle those 20 lines in the CSV with escaped lines,
+// Just for fun, something to handle those 20 or so lines in the CSV with escaped lines,
 // doesn't handle escaped newlines since readLine() would destroy them and the CSV
-// doesn't have any :).
+// doesn't have any :)
 public class CSVUtils {
 
     private CSVUtils() { }
@@ -16,7 +16,7 @@ public class CSVUtils {
      */
     public static String[] parseCSVLine(String csvLine) {
 
-        // The last field may contain a newline sequence, throw it out since we can't
+        // The last field may end with a newline sequence, throw it out since we can't
         // handle them properly.
         if(csvLine.endsWith("\r\n")) {
             csvLine = csvLine.substring(0, csvLine.length() - 2);

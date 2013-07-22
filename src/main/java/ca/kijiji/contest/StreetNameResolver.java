@@ -6,6 +6,7 @@ import java.util.regex.Pattern;
 
 import ca.kijiji.contest.ticketworkers.StreetFineTabulator;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.*;
 
@@ -14,8 +15,6 @@ import org.slf4j.*;
  * Uses thread-safe caching internally.
  */
 public class StreetNameResolver {
-
-    private static final Logger LOG = LoggerFactory.getLogger(StreetFineTabulator.class);
 
     // Regex to separate the street number from the street name
     // there need not be a street number, but it must be a combination of digits and punctuation with
@@ -50,6 +49,8 @@ public class StreetNameResolver {
             "TERR", "TERRACE", "TR", "TRL", "TRAIL", "VISTA", "V", "WAY", "WY", "WOOD"
 
     );
+
+    private static ImmutableSet<String> VALID_ENDINGS = ImmutableSet.copyOf(Sets.union(DESIGNATION_SET, DIRECTION_SET));
 
     // Map of cache-friendly addresses to their respective street names
     private final ConcurrentHashMap<String, String> _mStreetCache = new ConcurrentHashMap<>();
@@ -103,8 +104,8 @@ public class StreetNameResolver {
         // Remove the street number from the start of the address if there is one.
 
         // charAt() probably doesn't work right with surrogate pairs.
-        // Luckily, we don't need to support hieroglyphs.
-        if(Character.isDigit(addr.charAt(0))) {
+        // but neither do our character checks
+        if(_isDigit(addr.charAt(0))) {
 
             // Check where the first space is
             int space_idx = addr.indexOf(' ');
@@ -113,7 +114,7 @@ public class StreetNameResolver {
 
                 // A street number may end in a lowercase letter but never in an uppercase letter.
                 // all street names use uppercase letters.
-                if (Character.isUpperCase(addr.charAt(space_idx - 1))) {
+                if (_isUpperCase(addr.charAt(space_idx - 1))) {
                     // This is probably a street name, return as-is.
                     return addr;
                 }
@@ -157,9 +158,21 @@ public class StreetNameResolver {
                 ++lastNameElem;
                 break;
             }
+
         }
 
         // join together the tokens that make up the street's name and return
         return StringUtils.join(streetToks, ' ', 0, lastNameElem);
+    }
+
+    // isDigit and isUpperCase implementations that don't care about unicode.
+    // and don't require table lookups.
+    private static boolean _isDigit(char car) {
+        return car >= '0' && car <= '9';
+    }
+
+    // Avec mes excuses à mes amis, no latin1 either.
+    private static boolean _isUpperCase(char car) {
+        return car >= 'A' && car <= 'Z';
     }
 }

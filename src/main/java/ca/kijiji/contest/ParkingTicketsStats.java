@@ -17,7 +17,7 @@ import ca.kijiji.contest.ticketworkers.*;
 // "PENGARTH CROUT" and "BEVERLEY ST BLOCKING PRIVATE DRWY" that would normally be fixed with a manual once-over...
 // but let's pretend we have good data, These errors are small enough not to cause huge problems
 
-// And don't park anywhere near Seneca college.
+// Don't park anywhere near Seneca college.
 
 public class ParkingTicketsStats {
 
@@ -81,37 +81,12 @@ public class ParkingTicketsStats {
         // Wait for the workers to finish
         countDownLatch.await();
 
+        long startTime = System.currentTimeMillis();
         // Return an immutable map of the stats sorted by value
-        return _finalizeStatsMap(stats);
-    }
+        SortedStatsMap foo = new SortedStatsMap(stats, SKIP_NUM_TICKETS + 1);
+        long duration = System.currentTimeMillis() - startTime;
+        LOG.info("Duration of sort = {} ms", duration);
 
-    protected static SortedMap<String, Integer> _finalizeStatsMap(Map<String, AtomicInteger> stats) {
-
-        // Order by value, descending
-        Ordering<Map.Entry<String, AtomicInteger>> entryOrdering = Ordering.natural()
-                .onResultOf(new Function<Map.Entry<String, AtomicInteger>, Integer>() {
-                    public Integer apply(Map.Entry<String, AtomicInteger> entry) {
-                        return entry.getValue().intValue();
-                    }
-                }).reverse();
-
-        // Figure out what order of the keys is when we sort by value
-        List<String> sortedKeyOrder = new LinkedList<>();
-        List<Map.Entry<String, AtomicInteger>> resultOrdered = entryOrdering.sortedCopy(stats.entrySet());
-
-        for (Map.Entry<String, AtomicInteger> entry : resultOrdered) {
-            sortedKeyOrder.add(entry.getKey());
-        }
-
-        // Put the results into an immutable map ordered by value, converting AtomicInteger to an Integer
-        ImmutableSortedMap.Builder<String, Integer> builder =
-                new ImmutableSortedMap.Builder<>(Ordering.explicit(sortedKeyOrder));
-
-        // Multiply the fine totals by however many tickets we skip per ticket + 1
-        // to arrive at our best guess of the real fine totals for each street
-        for (Map.Entry<String, AtomicInteger> entry : resultOrdered) {
-            builder.put(entry.getKey(), entry.getValue().intValue() * (SKIP_NUM_TICKETS + 1));
-        }
-        return builder.build();
+        return foo;
     }
 }
