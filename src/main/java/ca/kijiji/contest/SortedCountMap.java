@@ -3,6 +3,9 @@ package ca.kijiji.contest;
 import java.util.TreeMap;
 
 
+/**
+ * A map that keeps tally of the sum of the integer values inserted into each key. 
+ */
 public class SortedCountMap<K, V> extends TreeMap<String, Integer> {
 
 	private static final long serialVersionUID = -6233514320502923598L;

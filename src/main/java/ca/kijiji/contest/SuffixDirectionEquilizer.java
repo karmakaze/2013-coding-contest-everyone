@@ -4,6 +4,10 @@ import java.util.Collections;
 import java.util.Hashtable;
 import java.util.Map;
 
+
+/**
+ * A helper class to map the suffixes and directions into 1 canonical form for comparison.
+ */
 public class SuffixDirectionEquilizer {
 
     private static Map<String, String> SUFFIX_EQUIV_MAP = null;
@@ -88,10 +92,20 @@ public class SuffixDirectionEquilizer {
         DIRECTION_EQUIV_MAP = Collections.unmodifiableMap(DIRECTION_EQUIV_MAP);
     }
     
+    /**
+     * Determines if a string is a suffix.
+     * @param s The string that may or may not be a suffix.
+     * @return True if it is a sort of suffix. False otherwise.
+     */
     public static boolean isSuffix(String s) {
     	return SUFFIX_EQUIV_MAP.containsKey(s);
     }
-    
+
+    /**
+     * Determines if a string is a direction.
+     * @param s The string that may or may not be a direction.
+     * @return True if it is a sort of direction. False otherwise.
+     */
     public static boolean isDirection(String s) {
     	return DIRECTION_EQUIV_MAP.containsKey(s);
     }    
