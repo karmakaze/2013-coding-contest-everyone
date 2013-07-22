@@ -1,3 +1,6 @@
+# Eclipse files
+.settings/
+bin/
 # IDEA project files
 .idea/
 *.ipr
