@@ -42,7 +42,7 @@ public abstract class AbstractTicketWorker extends Thread {
                 // Block until we have a new message
                 String message;
                 while((message =  _mMessageQueue.poll()) == null) {
-
+                    Thread.yield();
                 }
 
                 // It's the last message, rebroadcast to all the other consumers so they shut down as well.
