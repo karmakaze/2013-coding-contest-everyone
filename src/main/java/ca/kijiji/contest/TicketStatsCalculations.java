@@ -62,12 +62,12 @@ public class TicketStatsCalculations {
     }
     
     private static String findRoadName(String roadName) {
-        // Removed: Most data is upper case, saves some time
+        // Removed: Most data is upper case, lower case data is minimal
         // key = key.toUpperCase().trim();
         
         String[] tokens = roadName.split(" ");
         
-        // Single word name
+        // Single word shortcut
         if (tokens.length == 1) {
             return roadName;
         }
@@ -102,8 +102,7 @@ public class TicketStatsCalculations {
                 sb.append(" ");
             }
         }
-        String result = sb.toString();
-        return result;
+        return sb.toString();
     }
     
     public static class MapResult {

@@ -62,7 +62,7 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor {
     }
     
     private List<MapperResultCollector> map(TaskTracker taskTracker, InputStream inputStream) throws Exception {
-        List<MapperResultCollector> results = new ArrayList<MapperResultCollector>();
+        List<MapperResultCollector> resultCollectors = new ArrayList<MapperResultCollector>();
         
         // Start reading. IO is slow anyway and can't really multithread it.
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
@@ -77,7 +77,7 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor {
             index++;
             
             if (index == MAPPER_CHUNK_SIZE) {
-                results.add(startMapper(taskTracker, buffer));
+                resultCollectors.add(startMapper(taskTracker, buffer));
                 // Reset buffer
                 buffer = new String[MAPPER_CHUNK_SIZE];
                 index = 0;
@@ -86,25 +86,25 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor {
         reader.close();
         // Clear out the last partition if necessary
         if (index > 0) {
-            results.add(startMapper(taskTracker, buffer));
+            resultCollectors.add(startMapper(taskTracker, buffer));
             buffer = null;
         }
         printTime("Mappers dispatch complete: ");
         // Wait until tasks are done
         taskTracker.waitForTasksAndReset();
-        return results;
+        return resultCollectors;
     }
     
     private List<ReducerResultCollector> reduce(TaskTracker taskTracker, List<MapperResultCollector> input) throws Exception {
-        List<ReducerResultCollector> results = new ArrayList<ReducerResultCollector>(AVAILABLE_CORES);
+        List<ReducerResultCollector> resultCollectors = new ArrayList<ReducerResultCollector>(AVAILABLE_CORES);
         // Start tasks
         for (int i = 0; i < PARTITIONS; i++) {
-            results.add(startReducer(taskTracker, input, i));
+            resultCollectors.add(startReducer(taskTracker, input, i));
         }
         printTime("Reducers dispatch complete: ");
         // Wait until tasks are done
         taskTracker.waitForTasksAndReset();
-        return results;
+        return resultCollectors;
     }
     
     private MapperResultCollector startMapper(TaskTracker taskTracker, String[] data) {
