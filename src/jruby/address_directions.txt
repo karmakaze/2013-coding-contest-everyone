@@ -1,0 +1,6 @@
+# this file contains synonyms for known address suffixes, each line is a different suffix
+# with space separated directions
+N NORTH
+S SOUTH
+E EAST
+W WEST

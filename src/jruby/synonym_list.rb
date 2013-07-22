@@ -1,6 +1,10 @@
 
 class SynonymList
    attr_reader :synonyms
+
+   def self.from_file(filename)
+      File.read(filename).split(/\n/).reject {|line| line =~ /^#/ || line.strip.length == 0 } .map {|line| new(*line.split) }
+   end
    
    def initialize(*args)
       @synonyms = args
