@@ -51,7 +51,7 @@ public class ParkingTicketsStats {
         LinkedBlockingQueue<String> messageQueue = new LinkedBlockingQueue<>(MSG_QUEUE_SIZE);
         CountDownLatch countDownLatch = new CountDownLatch(numWorkerThreads);
 
-        // NOTE: Dispatch using a ThreadPool and Runnable for each entry was 2 times slower than manually
+        // Dispatch using a ThreadPool and Runnable for each entry was 2 times slower than manually
         // handling task dispatch, slower than the non-threaded version! Manually manage work dispatch
         // with long-running threads.
 
@@ -63,20 +63,14 @@ public class ParkingTicketsStats {
         // Throw away the line with the header
         parkingCsvReader.readLine();
 
-        // Keep sending lines to workers til we hit EOF (excuse my C-isms)
-        // It's not valid to read CSVs this way according to the spec, but none
-        // of the columns contain escaped newlines.
+        // Keep sending lines to workers til we hit EOF. It's not valid to read CSVs
+        // this way according to the spec, but none of the columns contain escaped newlines.
         String parkingTicketLine;
         while((parkingTicketLine = parkingCsvReader.readLine()) != null) {
             messageQueue.put(parkingTicketLine);
 
-            // For every ticket we read, skip SKIP_NUM_TICKETS. We get a good enough approximation
-            // of the sum of the fines for each street without actually reading every single one
-            for(int i = 0; i < SKIP_NUM_TICKETS; ++i) {
-
-                // It would be possible to speed this up by creating a skipLine() method
-                // that doesn't bother with StringBuilders or String instances, but the relevant
-                // members in BufferedReader are private.
+            // For every ticket we read, skip SKIP_NUM_TICKETS.
+            for(int i=0; i < SKIP_NUM_TICKETS; ++i) {
                 parkingCsvReader.readLine();
             }
         }

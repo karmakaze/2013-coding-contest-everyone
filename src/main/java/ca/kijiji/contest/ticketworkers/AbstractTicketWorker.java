@@ -74,6 +74,7 @@ public abstract class AbstractTicketWorker extends Thread {
                     }
                 }
 
+                // Implementation-defined method of processing the columns
                 processTicketCols(ticketCols);
             } catch (InterruptedException e) {
                 return;
