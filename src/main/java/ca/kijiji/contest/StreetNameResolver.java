@@ -52,7 +52,7 @@ public class StreetNameResolver {
     );
 
     // Map of cache-friendly addresses to their respective street names
-    private ConcurrentHashMap<String, String> _mStreetCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, String> _mStreetCache = new ConcurrentHashMap<>();
 
     public StreetNameResolver() {
 

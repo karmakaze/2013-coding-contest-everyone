@@ -34,7 +34,9 @@ public abstract class AbstractTicketWorker extends Thread {
 
 
     public void run () {
-        while(true) {
+
+        // Start the infinite message loop, quit when we get an END message.
+        for(;;) {
             try {
 
                 // Block until we have a new message
@@ -82,7 +84,7 @@ public abstract class AbstractTicketWorker extends Thread {
 
     /**
      * Do something with the split up columns from a line in the CSV
-     * @param ticketCols
+     * @param ticketCols columns from the CSV
      */
     abstract protected void processTicketCols(String[] ticketCols);
 }

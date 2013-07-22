@@ -1,12 +1,12 @@
 package ca.kijiji.contest.ticketworkers;
 
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import ca.kijiji.contest.StreetNameResolver;
-import com.google.common.primitives.Longs;
-import com.twitter.jsr166e.LongAdder;
+import com.google.common.primitives.Ints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,12 +15,12 @@ public class StreetFineTabulator extends AbstractTicketWorker {
     private static final Logger LOG = LoggerFactory.getLogger(StreetFineTabulator.class);
 
     // street name -> profit map
-    private final ConcurrentMap<String, LongAdder> _mStreetStats;
+    private final ConcurrentHashMap<String, AtomicInteger> _mStreetStats;
     // Normalized name cache, makes it complete around 30% faster on my PC.
     private final StreetNameResolver _mStreetNameResolver;
 
     public StreetFineTabulator(CountDownLatch counter, LinkedBlockingQueue<String> queue,
-                               ConcurrentMap<String, LongAdder> statsMap, StreetNameResolver nameCacheMap) {
+                               ConcurrentHashMap<String, AtomicInteger> statsMap, StreetNameResolver nameCacheMap) {
         super(counter, queue);
         _mStreetStats = statsMap;
         _mStreetNameResolver = nameCacheMap;
@@ -41,7 +41,7 @@ public class StreetFineTabulator extends AbstractTicketWorker {
         // We were able to parse a street name out of the address
         if(streetName != null && !streetName.trim().isEmpty()) {
             // Figure out how much the fine for this infraction was
-            Long fine = Longs.tryParse(ticketCols[FINE_COLUMN]);
+            Integer fine = Ints.tryParse(ticketCols[FINE_COLUMN]);
 
             if(fine != null)
                 addFineTo(streetName, fine);
@@ -58,14 +58,14 @@ public class StreetFineTabulator extends AbstractTicketWorker {
      * @param streetName street the infraction occurred on
      * @param fine fine to add to the street total
      */
-    protected void addFineTo(String streetName, long fine) {
+    protected void addFineTo(String streetName, int fine) {
         // Look for the map entry for this street's fines
-        LongAdder fineTracker = _mStreetStats.get(streetName);
+        AtomicInteger fineTracker = _mStreetStats.get(streetName);
 
         // Alright, couldn't find an existing fine tracker. We can't avoid locking now. Try putting one in,
         // or if someone else puts one in before us, use that.
         if(fineTracker == null) {
-            final LongAdder newFineTracker = new LongAdder();
+            final AtomicInteger newFineTracker = new AtomicInteger();
             fineTracker = _mStreetStats.putIfAbsent(streetName, newFineTracker);
 
             // Nobody tried inserting one before we did, use the one we just inserted.
@@ -75,6 +75,6 @@ public class StreetFineTabulator extends AbstractTicketWorker {
         }
 
         // Add it to the total for this street
-        fineTracker.add(fine);
+        fineTracker.getAndAdd(fine);
     }
 }

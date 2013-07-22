@@ -12,7 +12,7 @@ public class CSVUtils {
     /**
      * Parse a pseudo-CSV formatted line
      * @param csvLine pseudo-CSV formatted line
-     * @return Unescaped columns parsed from csvLine
+     * @return Un-escaped columns parsed from csvLine
      */
     public static String[] parseCSVLine(String csvLine) {
 
@@ -22,17 +22,17 @@ public class CSVUtils {
             csvLine = csvLine.substring(0, csvLine.length() - 2);
         }
 
+        int lineLen = csvLine.length();
+
         ArrayList<String> csvCols = new ArrayList<>();
+
+        StringBuilder colBuilder = new StringBuilder();
 
         // Whether or not we're inside a quoted field
         boolean insideQuotes = false;
 
         // What index the current field starts at
         int fieldStart = 0;
-
-        int lineLen = csvLine.length();
-
-        StringBuilder colBuilder = new StringBuilder();
 
         for(int i = 0; i < lineLen; ++i) {
 
@@ -93,7 +93,7 @@ public class CSVUtils {
             }
         }
 
-        // Add the last column to the list
+        // Add the last column to the list (there's always at least one)
         csvCols.add(colBuilder.toString());
 
         return csvCols.toArray(new String[csvCols.size()]);
