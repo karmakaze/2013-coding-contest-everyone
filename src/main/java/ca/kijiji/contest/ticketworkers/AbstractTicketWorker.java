@@ -6,6 +6,7 @@ import org.slf4j.*;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class AbstractTicketWorker extends Thread {
 
@@ -22,13 +23,17 @@ public abstract class AbstractTicketWorker extends Thread {
     // decrement this when we leave run(), means no running worker threads when at 0
     protected final CountDownLatch _mRunningCounter;
 
+    // Number of errors we've come across during our work
+    protected final AtomicInteger _mErrCounter;
+
     // How the main thread communicates with us
     protected final LinkedBlockingQueue<String> _mMessageQueue;
 
 
 
-    protected AbstractTicketWorker(CountDownLatch counter, LinkedBlockingQueue<String> queue) {
+    protected AbstractTicketWorker(CountDownLatch counter, AtomicInteger errCounter, LinkedBlockingQueue<String> queue) {
         _mRunningCounter = counter;
+        _mErrCounter = errCounter;
         _mMessageQueue = queue;
     }
 

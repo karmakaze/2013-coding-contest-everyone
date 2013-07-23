@@ -19,13 +19,11 @@ public class StreetFineTabulator extends AbstractTicketWorker {
     // Normalized name cache, makes it complete around 30% faster on my PC.
     private final StreetNameResolver _mStreetNameResolver;
 
-    private final AtomicInteger _mErrCounter;
-
-    public StreetFineTabulator(CountDownLatch counter, LinkedBlockingQueue<String> queue, AtomicInteger errCounter,
+    public StreetFineTabulator(CountDownLatch runCounter, LinkedBlockingQueue<String> queue, AtomicInteger errCounter,
                                ConcurrentHashMap<String, AtomicInteger> statsMap, StreetNameResolver nameCacheMap) {
-        super(counter, queue);
+        super(runCounter, errCounter, queue);
         _mStreetStats = statsMap;
-        _mErrCounter = errCounter;
+
         _mStreetNameResolver = nameCacheMap;
     }
 
