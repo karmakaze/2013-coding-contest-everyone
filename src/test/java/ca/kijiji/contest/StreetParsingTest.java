@@ -68,6 +68,11 @@ public class StreetParsingTest extends TestCase {
 		streetTestHelper("FINCHA VE EAST", "FINCH");
 	}
 	
+	@Test
+	public void testOneWordStreet() throws UnparseableLocationException {
+		streetTestHelper("QUEENSWAY", "QUEENSWAY");
+	}
+
 	public void streetTestHelper(String location, String expected) throws UnparseableLocationException {
 		String actual = StreetUtil.parseStreet(location);
 		assertThat(actual, equalTo(expected));
