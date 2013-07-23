@@ -26,11 +26,7 @@ public class ParkingTicketsStats {
     private static final Logger LOG = LoggerFactory.getLogger(ParkingTicketsStats.class);
 
     // How many pending messages can be in the queue before insertions block
-    private static final int MSG_QUEUE_SIZE = 4000;
-
-    // Assume that most lines in the CSV are going to be at least 76 chars long
-    // (lower quartile determined with awk)
-    private static final int MIN_LINE_LEN = 76;
+    private static final int MSG_QUEUE_SIZE = 4096;
 
     /**
      * Tabulates the total parking tickets per street with no fuzzing applied
@@ -42,7 +38,7 @@ public class ParkingTicketsStats {
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream)
             throws IOException, InterruptedException {
 
-        return sortStreetsByProfitability(parkingTicketsStream, 1);
+        return sortStreetsByProfitability(parkingTicketsStream, 0);
     }
 
     /**
@@ -70,7 +66,7 @@ public class ParkingTicketsStats {
         // Use as many workers as we have cores - 1 up to a maximum of 3 workers, but always use at least one.
         int numWorkerThreads = Math.max(Math.min(Runtime.getRuntime().availableProcessors() - 1, 3), 1);
 
-        // a single worker thread is fastest when the main thread is wasting time skipping tickets anyways.
+        // A single worker thread is fastest when the main thread is wasting time skipping tickets anyways.
         if(numSkipLines > 0)
             numWorkerThreads = 1;
 
@@ -78,13 +74,16 @@ public class ParkingTicketsStats {
         LinkedBlockingQueue<String> messageQueue = new LinkedBlockingQueue<>(MSG_QUEUE_SIZE);
         CountDownLatch countDownLatch = new CountDownLatch(numWorkerThreads);
 
+        // Count the number of bogus addresses we hit
+        AtomicInteger errCounter = new AtomicInteger(0);
+
         // Dispatch using a ThreadPool and Runnable for each entry was 2 times slower than manually
         // handling task dispatch, slower than the non-threaded version! Manually manage work dispatch
         // with long-running threads.
 
         // Set up the worker threads
         for(int i = 0; i < numWorkerThreads; ++i) {
-            new StreetFineTabulator(countDownLatch, messageQueue, stats, streetNameResolver).start();
+            new StreetFineTabulator(countDownLatch, messageQueue, errCounter, stats, streetNameResolver).start();
         }
 
         // Throw away the line with the header
@@ -96,13 +95,7 @@ public class ParkingTicketsStats {
         while((parkingTicketLine = parkingCsvReader.readLine()) != null) {
             messageQueue.put(parkingTicketLine);
 
-            // For every ticket we read, skip approximately numSkipLines lines.
-            if(numSkipLines > 0) {
-                // Skip by the number of characters per line * the number of lines to skip.
-                // Much faster than calling readLine() in a loop.
-                parkingCsvReader.skip(MIN_LINE_LEN * numSkipLines);
-
-                // Eat the remainder of whatever line we're on
+            for(int i=0; i<numSkipLines; ++i) {
                 parkingCsvReader.readLine();
             }
         }
@@ -113,13 +106,14 @@ public class ParkingTicketsStats {
         // Wait for the workers to finish
         countDownLatch.await();
 
-        long startTime = System.currentTimeMillis();
-        // Return an immutable map of the stats sorted by value
-        SortedMap<String, Integer> foo = _finalizeStatsMap(stats, numSkipLines + 1);
-        long duration = System.currentTimeMillis() - startTime;
-        LOG.info("Duration of sort = {} ms", duration);
+        // If there were any errors, print how many
+        int numErrs = errCounter.get();
+        if(numErrs > 0) {
+            LOG.warn(String.format("Hit %d bogus addreses during processing", numErrs));
+        }
 
-        return foo;
+        // Return an immutable map of the stats sorted by value
+        return _finalizeStatsMap(stats, numSkipLines + 1);
     }
 
     @SuppressWarnings("unchecked")

@@ -6,7 +6,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
+import com.google.common.primitives.Ints;
 import org.apache.commons.lang.StringUtils;
 
 /**
@@ -25,11 +25,11 @@ public class StreetNameResolver {
     // 1E AVENUE, but none like that exist in Toronto.
     // Whoever released this dataset as-is is a sadist.
     private static final String STREET_NUM_REGEX = "(?<num>[\\p{N}\\p{Ll}\\-&/,\\. ]*\\p{Lu}?)";
-    private static final String STREET_NAME_REGEX = "(?<street>[\\p{N}\\p{L} \\.'-]*)";
+    private static final String STREET_NAME_REGEX = "(?<street>[\\p{N}\\p{L} '-]*)";
 
     //Ignore garbage at the beginning and end of the string and pull out the street numbers / names
     private static final Pattern ADDR_REGEX =
-            Pattern.compile("^[^\\p{N}\\p{L}]*(" + STREET_NUM_REGEX + "[^\\p{N}\\p{L}]*\\s+)?" + STREET_NAME_REGEX + ".*");
+            Pattern.compile("^[^\\p{N}\\p{L}]*(" + STREET_NUM_REGEX + "[^\\p{N}\\p{L}]*\\s+)?" + STREET_NAME_REGEX + "\\.?.*");
 
     // Set of directions a street may end with
     private static final ImmutableSet<String> DIRECTION_SET = ImmutableSet.of(
@@ -81,6 +81,11 @@ public class StreetNameResolver {
                 // Get just the street *name* from the street
                 streetName = _isolateStreetName(addrMatches.group("street"));
 
+                // Reject street names that are *entirely* comprised of numbers
+                if(Ints.tryParse(streetName) != null) {
+                    return null;
+                }
+
                 // Add the street name to the cache. We don't really care if this gets clobbered,
                 // we put in the same val for a key no matter what.
                 _mStreetCache.put(streetCacheKey, streetName);
@@ -92,7 +97,7 @@ public class StreetNameResolver {
 
     /**
      * Get a cacheable version of this address for street name lookups by lopping off the
-     * Street number (if we can.)
+     * Street number using simple operations (if we can.)
      * Results in a 17% speed increase over always running the regex and using group("street").
      *
      * This optimizes for the common case of NUMBER? STREET DESIGNATION? DIRECTION? with no garbage

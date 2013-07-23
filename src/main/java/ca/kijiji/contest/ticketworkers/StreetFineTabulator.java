@@ -19,10 +19,13 @@ public class StreetFineTabulator extends AbstractTicketWorker {
     // Normalized name cache, makes it complete around 30% faster on my PC.
     private final StreetNameResolver _mStreetNameResolver;
 
-    public StreetFineTabulator(CountDownLatch counter, LinkedBlockingQueue<String> queue,
+    private final AtomicInteger _mErrCounter;
+
+    public StreetFineTabulator(CountDownLatch counter, LinkedBlockingQueue<String> queue, AtomicInteger errCounter,
                                ConcurrentHashMap<String, AtomicInteger> statsMap, StreetNameResolver nameCacheMap) {
         super(counter, queue);
         _mStreetStats = statsMap;
+        _mErrCounter = errCounter;
         _mStreetNameResolver = nameCacheMap;
     }
 
@@ -49,7 +52,11 @@ public class StreetFineTabulator extends AbstractTicketWorker {
         // There are plenty of funky looking addresses in the CSV, they're really not exceptional.
         // Just log whatever weirdness we get and ignore it.
         else {
-            LOG.warn(String.format("Couldn't parse address: %s", addr));
+            _mErrCounter.getAndIncrement();
+
+            // There's a perormance penalty 200ms+ associated with printing all these,
+            // only do so in debug mode.
+            LOG.debug(String.format("Couldn't parse address: %s", addr));
         }
     }
 
