@@ -63,6 +63,8 @@ public class StreetAmountParser {
    * If the street name cannot be recovered from the address, the original line
    * is logged at the DEBUG level, and a StreetAddress with
    * {@code *BAD ADDRESS*} as the street name is returned.
+   * <p>
+   * This method is safe for concurrent use by multiple threads.
    *
    * @param line
    *          a line from the Toronto Parking Tickets CSV file.
@@ -70,16 +72,37 @@ public class StreetAmountParser {
    *         the given line.
    */
   public static StreetAmount parse(String line) {
-    String[] fields = line.split(",");
-    int amount = Integer.parseInt(fields[4]);
-    String address = fields[7];
+
+    // implementation note: walking through the string using indexOf(',') instead of
+    // String.split(",") saves about 500ms in overall processing time on my machine.
+    // This is probably mostly due to reduced object allocation (we only allocate the
+    // 2 strings per line that we need, instead of the 11 that exist in the file.)
+    //
+    // Apologies for the reduced readability!
+
+    int fromIndex = 0;
+    for (int i = 0; i < 4; i++) {
+      fromIndex = 1 + line.indexOf(',', fromIndex);
+    }
+
+    // Amount is the 4th field
+    int amount = Integer.parseInt(line.substring(fromIndex, line.indexOf(',', fromIndex)));
+
+    for (int i = 0; i < 3; i++) {
+      fromIndex = 1 + line.indexOf(',', fromIndex);
+    }
+
+    // Address is the 7th field
+    String address = line.substring(fromIndex, line.indexOf(',', fromIndex));
+
+    // Pull street name out of address
     Matcher matcher = FULL_PATTERN.matcher(address);
     String street;
     if (matcher.matches()) {
       street = matcher.group(2);
     }
     else {
-      LOG.debug("Unparseable address: {}", fields[7]);
+      LOG.debug("Unparseable address: {}", address);
       street = "*BAD ADDRESS*";
     }
     return new StreetAmount(amount, street);

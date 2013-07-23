@@ -70,7 +70,6 @@ public class ParkingTicketsStats {
 
     final LinkedBlockingQueue<String> lines = new LinkedBlockingQueue<String>(10000);
 
-
     ExecutorService threadPool = Executors.newFixedThreadPool(4);
     List<Future<Map<String, StreetAmount>>> parseResults = new ArrayList<Future<Map<String, StreetAmount>>>();
     for (int i = 0; i < 4; i++) {
