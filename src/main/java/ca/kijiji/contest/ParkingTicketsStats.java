@@ -47,7 +47,7 @@ public class ParkingTicketsStats {
 				ticketData = ticketReader.getValues();
 				String location = namedRow.getField(ticketData, LOCATION_FIELD_NAME);
 				int fineAmount = namedRow.getIntegerField(ticketData, FINE_AMOUNT_FIELD_NAME);
-				String street = parseStreet(location);
+				String street = parseStreet(location);				
   				streetToFineSum.put(street, fineAmount);
 			}
 			catch(UnparseableLocationException ule) {
@@ -71,11 +71,12 @@ public class ParkingTicketsStats {
      * @throws UnparseableLocationException Unable to determine the street from the location.
      */
     public static String parseStreet(String location) throws UnparseableLocationException {
-    	if (location.equals("")) {
+    	String sanitizedLocation = _sanitizeLocation(location);
+    	if (sanitizedLocation.equals("")) {
     		throw new UnparseableLocationException(location);
     	}
     	
-    	String[] locationParts = location.split(" ");
+    	String[] locationParts = sanitizedLocation.split(" ");
     	
     	boolean hasDirection = SuffixDirectionEquilizer.isDirection(locationParts[locationParts.length - 1]);
     	if (hasDirection) {
@@ -94,5 +95,20 @@ public class ParkingTicketsStats {
 		}
 		
     	return StringUtils.join(locationParts, " ");
+    }
+    
+    /**
+     * Removes miscellaneous characters from location.
+     * @param location Unsanitized location.
+     * @return Sanitized location.
+     */
+    private static String _sanitizeLocation(String location) {
+    	String[] detrius = new String[]{".", "/", "\\", "?", ",", "\""};
+    	String sanitizedLocation = location;
+    	for (String badChar : detrius) {
+    		sanitizedLocation = sanitizedLocation.replace(badChar, "");
+    	}
+    	
+    	return sanitizedLocation.trim();
     }
 }

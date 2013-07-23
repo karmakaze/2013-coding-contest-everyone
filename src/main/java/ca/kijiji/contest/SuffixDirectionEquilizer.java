@@ -56,6 +56,8 @@ public class SuffixDirectionEquilizer {
         SUFFIX_EQUIV_MAP.put("CRCL", "CIRCLE");
         SUFFIX_EQUIV_MAP.put("CIRLE", "CIRCLE");
         SUFFIX_EQUIV_MAP.put("CIRL", "CIRCLE");
+        SUFFIX_EQUIV_MAP.put("CIRC", "CIRCLE");
+        SUFFIX_EQUIV_MAP.put("CRCLE", "CIRCLE");
         SUFFIX_EQUIV_MAP.put("HILL", "HILL");
         SUFFIX_EQUIV_MAP.put("WAY", "WAY");
         SUFFIX_EQUIV_MAP.put("WY", "WAY");
