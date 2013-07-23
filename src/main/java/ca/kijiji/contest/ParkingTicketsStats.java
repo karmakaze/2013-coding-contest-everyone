@@ -49,7 +49,10 @@ public class ParkingTicketsStats {
   				streetToFineSum.put(street, fineAmount);
 			}
 			catch(UnparseableLocationException ule) {
-				LOG.warn(ule.toString());
+				// Don't bother warning if there wasn't even a street to parse.
+				if (!ule.getLocation().equals("")) {
+					LOG.warn(ule.toString());
+				}
 				continue;
 			}
 			catch (NumberFormatException nfe) {
