@@ -4,7 +4,8 @@ import java.util.TreeMap;
 
 
 /**
- * A map that keeps tally of the sum of the integer values inserted into each key. 
+ * A map that keeps tally of the sum of the integer values inserted into each key.
+ * It handles if the key doesn't exist. 
  */
 public class SortedCountMap<K, V> extends TreeMap<String, Integer> {
 

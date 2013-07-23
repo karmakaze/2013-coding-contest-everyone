@@ -17,6 +17,9 @@ import java.util.TreeMap;
 public class ImmutableSortedByValueMap extends TreeMap<String, Integer> implements SortedMap<String, Integer> {
 
 	private static final long serialVersionUID = 2250896562281350467L;
+	// We need all 3. We keep the original unsorted by value map just in case we need the original.
+	// We keep the sortedByValueMap to be able to perform the map-like functionality.
+	// We keep the sortedByValueList so we know the order of the entries by value.
 	private SortedMap<String, Integer> _unsortedByValueMap = null;
 	private LinkedHashMap<String, Integer> _sortedByValueMap = null;
 	private List<Map.Entry<String, Integer>> _sortedByValueList = null;
@@ -38,8 +41,7 @@ public class ImmutableSortedByValueMap extends TreeMap<String, Integer> implemen
 	
 	@Override
 	public void clear() {
-		this._unsortedByValueMap.clear();
-		this._sortedByValueMap.clear();
+		throw new UnsupportedOperationException("Immutable.");
 	}
 
 	@Override
