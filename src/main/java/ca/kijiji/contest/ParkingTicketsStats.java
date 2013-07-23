@@ -68,7 +68,7 @@ public class ParkingTicketsStats {
     // this skips the header line in the data
     in.readLine();
 
-    final LinkedBlockingQueue<String> lines = new LinkedBlockingQueue<String>(100);
+    final LinkedBlockingQueue<String> lines = new LinkedBlockingQueue<String>(10000);
 
 
     ExecutorService threadPool = Executors.newFixedThreadPool(4);
@@ -82,12 +82,12 @@ public class ParkingTicketsStats {
       lines.offer(line, 10, TimeUnit.SECONDS);
       LOG.debug("Put a line: {}", line);
     }
-    LOG.debug("File read time: {}", System.currentTimeMillis() - startTime);
+    LOG.info("File read time: {}", System.currentTimeMillis() - startTime);
 
     startTime = System.currentTimeMillis();
     threadPool.shutdown();
     threadPool.awaitTermination(20, TimeUnit.SECONDS);
-    LOG.debug("Worker lag time: {}", System.currentTimeMillis() - startTime);
+    LOG.info("Worker lag time: {}", System.currentTimeMillis() - startTime);
 
     // now merge all the results
     startTime = System.currentTimeMillis();
@@ -104,11 +104,11 @@ public class ParkingTicketsStats {
         }
       }
     }
-    LOG.debug("Result combination time: {}", System.currentTimeMillis() - startTime);
+    LOG.info("Result combination time: {}", System.currentTimeMillis() - startTime);
 
     startTime = System.currentTimeMillis();
     SortedMap<String, Integer> result = new SortedByValueMap<String, Integer>(combinedResults.values());
-    LOG.debug("Combined result sort time: {}", System.currentTimeMillis() - startTime);
+    LOG.info("Combined result sort time: {}", System.currentTimeMillis() - startTime);
 
     if (LOG.isDebugEnabled()) {
       for (Map.Entry<String, Integer> entry : result.entrySet()) {
