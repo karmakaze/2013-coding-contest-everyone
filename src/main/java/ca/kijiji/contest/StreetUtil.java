@@ -122,6 +122,12 @@ public class StreetUtil {
     	NUMBERED_STREET_ENDINGS.add("TH");
     }
 
+    // TODO: Find generic MultiMap.
+    /**
+     * Map of first letter of suffixes to a list of possible suffix endings.
+     * Used to determine if the first character of one word + the next word
+     * is actually a typo.
+     */
     private static MultiMap FAT_FINGERS = null;
     static {
     	FAT_FINGERS = new MultiHashMap();
@@ -185,8 +191,18 @@ public class StreetUtil {
     	return sanitizedLocation.trim();
     }
     
+    /**
+     * Determine if the last character of the previous to last part + last part is actually a suffix. Returns
+     * the real suffix if it exists, otherwise null.
+     * @param previousToLastPart The previous to last word of a location (direction has been stripped already).
+     * @param lastPart The last word of a location.
+     * @return If the last character of the previous to last part + last part is actually a suffix,  it returns
+     * the real suffix if it exists, otherwise null.
+     */
     public static String getTypoSuffix(String previousToLastPart, String lastPart) {
-    	if (previousToLastPart == null || previousToLastPart.length() < 1) {
+    	boolean tooShortToBeFatFingered = previousToLastPart == null || previousToLastPart.length() < 1 ||
+    			previousToLastPart.length() < 1;
+    	if (tooShortToBeFatFingered) {
     		return null;
     	}
     	
@@ -215,7 +231,6 @@ public class StreetUtil {
     		return null;
     	}
     }
-    
     
     /**
      * Takes a location (combination of optional number, street, suffix, and optional direction) 
