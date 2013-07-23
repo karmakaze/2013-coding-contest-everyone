@@ -11,8 +11,8 @@ import java.util.TreeSet;
 /**
  * A bastardized implementation of the SortedMap interface which supports lookup
  * by key as usual, but iterates over its entries by order of their value, from
- * highest to lowest. The SortedMap interface specifies iteration order is by
- * key, and this implementation violates that contract.
+ * highest to lowest. <b>The SortedMap interface specifies iteration order is by
+ * key, and this implementation violates that contract.</b>
  *
  * @author Jonathan Fuerth <jfuerth@gmail.com>
  */
