@@ -3,10 +3,8 @@ package ca.kijiji.contest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
-import java.util.Arrays;
 import java.util.SortedMap;
 
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +45,7 @@ public class ParkingTicketsStats {
 				ticketData = ticketReader.getValues();
 				String location = namedRow.getField(ticketData, LOCATION_FIELD_NAME);
 				int fineAmount = namedRow.getIntegerField(ticketData, FINE_AMOUNT_FIELD_NAME);
-				String street = parseStreet(location);				
+				String street = StreetUtil.parseStreet(location);				
   				streetToFineSum.put(street, fineAmount);
 			}
 			catch(UnparseableLocationException ule) {
@@ -61,54 +59,5 @@ public class ParkingTicketsStats {
 		}
 		ticketReader.close();
         return new ImmutableSortedByValueMap(streetToFineSum);
-    }
-    
-    /**
-     * Takes a location (combination of optional number, street, suffix, and optional direction) 
-     * and parses out the street name from it.
-     * @param location The full location.
-     * @return Just the street name.
-     * @throws UnparseableLocationException Unable to determine the street from the location.
-     */
-    public static String parseStreet(String location) throws UnparseableLocationException {
-    	String sanitizedLocation = _sanitizeLocation(location);
-    	if (sanitizedLocation.equals("")) {
-    		throw new UnparseableLocationException(location);
-    	}
-    	
-    	String[] locationParts = sanitizedLocation.split(" ");
-    	
-    	boolean hasDirection = SuffixDirectionEquilizer.isDirection(locationParts[locationParts.length - 1]);
-    	if (hasDirection) {
-    		locationParts = Arrays.copyOfRange(locationParts, 0, locationParts.length - 1);
-    	}
-
-    	boolean hasSuffix = SuffixDirectionEquilizer.isSuffix(locationParts[locationParts.length - 1]);
-		if (hasSuffix) {
-			locationParts = Arrays.copyOfRange(locationParts, 0, locationParts.length - 1);
-		}
-    			
-		boolean isNumberedStreet = SuffixDirectionEquilizer.isNumberedStreet(locationParts[0]);
-		boolean isAddressNumber = Character.isDigit(locationParts[0].charAt(0));
-		if (!isNumberedStreet && isAddressNumber) {			
-			locationParts = Arrays.copyOfRange(locationParts, 1, locationParts.length);
-		}
-		
-    	return StringUtils.join(locationParts, " ");
-    }
-    
-    /**
-     * Removes miscellaneous characters from location.
-     * @param location Unsanitized location.
-     * @return Sanitized location.
-     */
-    private static String _sanitizeLocation(String location) {
-    	String[] detrius = new String[]{".", "/", "\\", "?", ",", "\""};
-    	String sanitizedLocation = location;
-    	for (String badChar : detrius) {
-    		sanitizedLocation = sanitizedLocation.replace(badChar, "");
-    	}
-    	
-    	return sanitizedLocation.trim();
-    }
+    }        
 }

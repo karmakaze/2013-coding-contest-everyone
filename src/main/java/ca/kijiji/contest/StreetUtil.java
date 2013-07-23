@@ -1,17 +1,25 @@
 package ca.kijiji.contest;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
+
+import ca.kijiji.contest.exceptions.UnparseableLocationException;
+
 
 /**
- * A helper class to map the suffixes and directions into 1 canonical form for comparison.
+ * A helper class to handle location/street related activities.
  */
-public class SuffixDirectionEquilizer {
+public class StreetUtil {
 
+	/**
+	 * Mapping suffixes to 1 canonical form.
+	 */
     private static Map<String, String> SUFFIX_EQUIV_MAP = null;
     static {
         SUFFIX_EQUIV_MAP = new Hashtable<String, String>();
@@ -80,6 +88,9 @@ public class SuffixDirectionEquilizer {
         SUFFIX_EQUIV_MAP = Collections.unmodifiableMap(SUFFIX_EQUIV_MAP);
     }
 
+    /**
+     * Mapping directions to  canonical form.
+     */
     private static Map<String, String> DIRECTION_EQUIV_MAP = null;
     static {
         DIRECTION_EQUIV_MAP = new Hashtable<String, String>();
@@ -96,6 +107,9 @@ public class SuffixDirectionEquilizer {
         DIRECTION_EQUIV_MAP = Collections.unmodifiableMap(DIRECTION_EQUIV_MAP);
     }
     
+    /**
+     * Listing all possible number street endings.
+     */
     private static List<String> NUMBERED_STREET_ENDINGS = null;
     static {
     	NUMBERED_STREET_ENDINGS = new ArrayList<String>();
@@ -141,4 +155,53 @@ public class SuffixDirectionEquilizer {
     	return startsWithNumber && numberedEnding;
     	
     }
+    
+    /**
+     * Removes miscellaneous characters from location.
+     * @param location Unsanitized location.
+     * @return Sanitized location.
+     */
+    private static String _sanitizeLocation(String location) {
+    	String[] detrius = new String[]{".", "/", "\\", "?", ",", "\""};
+    	String sanitizedLocation = location;
+    	for (String badChar : detrius) {
+    		sanitizedLocation = sanitizedLocation.replace(badChar, "");
+    	}
+    	
+    	return sanitizedLocation.trim();
+    }
+    
+    /**
+     * Takes a location (combination of optional number, street, suffix, and optional direction) 
+     * and parses out the street name from it.
+     * @param location The full location.
+     * @return Just the street name.
+     * @throws UnparseableLocationException Unable to determine the street from the location.
+     */
+    public static String parseStreet(String location) throws UnparseableLocationException {
+    	String sanitizedLocation = _sanitizeLocation(location);
+    	if (sanitizedLocation.equals("")) {
+    		throw new UnparseableLocationException(location);
+    	}
+    	
+    	String[] locationParts = sanitizedLocation.split(" ");
+    	
+    	boolean hasDirection = StreetUtil.isDirection(locationParts[locationParts.length - 1]);
+    	if (hasDirection) {
+    		locationParts = Arrays.copyOfRange(locationParts, 0, locationParts.length - 1);
+    	}
+
+    	boolean hasSuffix = StreetUtil.isSuffix(locationParts[locationParts.length - 1]);
+		if (hasSuffix) {
+			locationParts = Arrays.copyOfRange(locationParts, 0, locationParts.length - 1);
+		}
+    			
+		boolean isNumberedStreet = StreetUtil.isNumberedStreet(locationParts[0]);
+		boolean isAddressNumber = Character.isDigit(locationParts[0].charAt(0));
+		if (!isNumberedStreet && isAddressNumber) {			
+			locationParts = Arrays.copyOfRange(locationParts, 1, locationParts.length);
+		}
+		
+    	return StringUtils.join(locationParts, " ");
+    }    
 }
