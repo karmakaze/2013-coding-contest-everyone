@@ -1,7 +1,9 @@
 package ca.kijiji.contest;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Hashtable;
+import java.util.List;
 import java.util.Map;
 
 
@@ -92,6 +94,15 @@ public class SuffixDirectionEquilizer {
         DIRECTION_EQUIV_MAP = Collections.unmodifiableMap(DIRECTION_EQUIV_MAP);
     }
     
+    private static List<String> NUMBERED_STREET_ENDINGS = null;
+    static {
+    	NUMBERED_STREET_ENDINGS = new ArrayList<String>();
+    	NUMBERED_STREET_ENDINGS.add("ST");
+    	NUMBERED_STREET_ENDINGS.add("ND");
+    	NUMBERED_STREET_ENDINGS.add("RD");
+    	NUMBERED_STREET_ENDINGS.add("TH");
+    }
+    
     /**
      * Determines if a string is a suffix.
      * @param s The string that may or may not be a suffix.
@@ -110,4 +121,22 @@ public class SuffixDirectionEquilizer {
     	return DIRECTION_EQUIV_MAP.containsKey(s);
     }    
 
+    /**
+     * Determines if the string is a numbered street.
+     * @param s The string to test.
+     * @return True if it's a numbered street. False if it ain't.
+     */
+    public static boolean isNumberedStreet(String s) {
+    	boolean startsWithNumber = Character.isDigit(s.charAt(0));
+    	
+    	boolean numberedEnding = false;
+    	for (String ending : NUMBERED_STREET_ENDINGS) {
+    		if (s.endsWith(ending)) {
+    			numberedEnding = true;
+    		}
+    	}
+    	
+    	return startsWithNumber && numberedEnding;
+    	
+    }
 }

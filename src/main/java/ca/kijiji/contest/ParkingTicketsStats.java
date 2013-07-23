@@ -86,9 +86,10 @@ public class ParkingTicketsStats {
 		if (hasSuffix) {
 			locationParts = Arrays.copyOfRange(locationParts, 0, locationParts.length - 1);
 		}
-    	
-		boolean hasNumber = Character.isDigit(locationParts[0].charAt(0));
-		if (hasNumber) {
+    			
+		boolean isNumberedStreet = SuffixDirectionEquilizer.isNumberedStreet(locationParts[0]);
+		boolean isAddressNumber = Character.isDigit(locationParts[0].charAt(0));
+		if (!isNumberedStreet && isAddressNumber) {			
 			locationParts = Arrays.copyOfRange(locationParts, 1, locationParts.length);
 		}
 		
