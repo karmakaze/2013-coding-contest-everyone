@@ -1,5 +1,6 @@
 package ca.kijiji.contest;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,6 +23,7 @@ public class ParkingTicketsStats {
 	static final int MASK = SIZE - 1;
 	static final String[] keys = new String[SIZE];
 	static final AtomicIntegerArray vals = new AtomicIntegerArray(SIZE);
+	static byte[] data;
 
 	public static int hash(final String k) {
 		int h = 0;
@@ -55,17 +57,42 @@ public class ParkingTicketsStats {
 	}
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
-    	printInterval("Initialization");
+    	printInterval("Pre-entry initialization");
 
     	String name = "([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)";
 		Matcher nameMatcher = Pattern.compile(name).matcher("");
 
+		ThreadGroup group = new ThreadGroup("workers");
+		Runnable runnable = new Runnable() {
+			public void run() {
+			}};
+		Thread t1 = new Thread(group, runnable);
+		Thread t2 = new Thread(group, runnable);
+
 		printProperty("os.arch");
     	System.out.println("InputStream is "+ parkingTicketsStream);
+    	if (parkingTicketsStream instanceof BufferedInputStream) {
+    		BufferedInputStream bis = (BufferedInputStream) parkingTicketsStream;
+    	}
+
     	//final Map<String, Integer> streets = new HashMap<String, Integer>();
     	try {
+    		int available = parkingTicketsStream.available();
+    		System.out.println("Bytes available: "+ available);
+    		data = new byte[available];
+    		int a = 0;
+    		for (int c = 16 * 4096; (c = parkingTicketsStream.read(data, a, c)) > 0; ) {
+    			a += c;
+    			if (available - a < c) {
+    				c = available - a;
+    			}
+    		}
+
+	    	printInterval("Local initialization: read "+ a +" bytes");
+
 	    	BufferedReader r = new BufferedReader(new InputStreamReader(parkingTicketsStream));
-	    	r.readLine();	// discard header row
+	    	r.readLine();   // discard header row
+
 	    	for(String line; (line = r.readLine()) != null; ) {
 	    		String[] parts = line.split(",");
 	    		try {
