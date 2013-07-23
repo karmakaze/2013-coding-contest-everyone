@@ -1,14 +1,13 @@
 package ca.kijiji.contest;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import ca.kijiji.contest.ticketworkers.StreetFineTabulator;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import org.apache.commons.lang.StringUtils;
-import org.slf4j.*;
 
 /**
  * Resolves addresses to street names
@@ -19,16 +18,18 @@ public class StreetNameResolver {
     // Regex to separate the street number from the street name
     // there need not be a street number, but it must be a combination of digits and punctuation with
     // an optional letter at the end for apartments. (ex. "123/345", "12451&2412", "2412a", "33-44", "235-a", "22, 77b")
-    // Also handles junk street numbers (like 222-, -33, !33, 1o2, l22) because they aren't important
-    // OCR must have been used for some of the data entry o's and l's are mixed with 0s and 1s. We consider lower-case
-    // letters to be part of the street number since that's the only place they show up. Street names are all upper-case.
+    // Also handles junk street numbers (like 222-, -33, !33, 1o2, l22) OCR must have been used for some of the
+    // data entry o's and l's are mixed with 0s and 1s. We consider lower-case letters to be part of the street number
+    // since that's the only place they show up, though one upper-case letter may appear on the *end* of a number for
+    // the unit. Street names, designations and directions are all upper-case. This will not handle streets like
+    // 1E AVENUE, but none like that exist in Toronto.
     // Whoever released this dataset as-is is a sadist.
-    private static final String STREET_NUM_REGEX = "(?<num>[\\p{N}\\p{Ll}\\-&/, ]*)";
+    private static final String STREET_NUM_REGEX = "(?<num>[\\p{N}\\p{Ll}\\-&/,\\. ]*\\p{Lu}?)";
     private static final String STREET_NAME_REGEX = "(?<street>[\\p{N}\\p{L} \\.'-]*)";
 
     //Ignore garbage at the beginning and end of the string and pull out the street numbers / names
     private static final Pattern ADDR_REGEX =
-            Pattern.compile("^[^\\p{N}\\p{L}]*(" + STREET_NUM_REGEX + "\\s+)?" + STREET_NAME_REGEX + ".*");
+            Pattern.compile("^[^\\p{N}\\p{L}]*(" + STREET_NUM_REGEX + "[^\\p{N}\\p{L}]*\\s+)?" + STREET_NAME_REGEX + ".*");
 
     // Set of directions a street may end with
     private static final ImmutableSet<String> DIRECTION_SET = ImmutableSet.of(
@@ -42,18 +43,16 @@ public class StreetNameResolver {
     private static final ImmutableSet<String> DESIGNATION_SET = ImmutableSet.of(
             // mostly from the top of
             // `cut -d, -f8 Parking_Tags_Data_2012.csv | sed 's/\s+$//g' | awk -F' ' '{print $NF}' | sort | uniq -c | sort -n`
-            "AV", "AVE", "AVENUE", "BL", "BLV", "BLVD", "BOULEVARD", "CIR", "CIRCLE", "CR", "CRCL", "CRCT", "CRES", "CRS",
+            "AV", "AVE", "AVENUE", "BL", "BLV", "BLVD", "BOULEVARD", "CIR", "CIRCLE", "CIRCUIT", "CR", "CRCL", "CRCT", "CRES", "CRS",
             "CRST", "CRESCENT", "CT", "CRT", "COURT", "D", "DR", "DRIVE", "GATE", "GARDEN", "GDN", "GDNS", "GARDENS", "GR", "GRDNS",
-            "GROVE", "GRV", "GT", "HGHTS", "HEIGHTS", "HTS", "HILL", "LN", "LANE", "MANOR", "MEWS", "PARKWAY", "PK", "PKWY",
+            "GROVE", "GRV", "GT", "HGHTS", "HEIGHTS", "HTS", "HILL", "LN", "LANE", "MANOR", "MEWS", "PARK", "PARKWAY", "PK", "PKWY",
             "PRK", "PL", "PLCE", "PLACE", "PROMENADE", "QUAY", "RD", "ROAD", "ST", "STR", "SQ", "SQUARE", "STREET", "T", "TER",
             "TERR", "TERRACE", "TR", "TRL", "TRAIL", "VISTA", "V", "WAY", "WY", "WOOD"
 
     );
 
-    private static ImmutableSet<String> VALID_ENDINGS = ImmutableSet.copyOf(Sets.union(DESIGNATION_SET, DIRECTION_SET));
-
     // Map of cache-friendly addresses to their respective street names
-    private final ConcurrentHashMap<String, String> _mStreetCache = new ConcurrentHashMap<>();
+    private final Map<String, String> _mStreetCache = new ConcurrentHashMap<>();
 
     public StreetNameResolver() {
 
@@ -76,17 +75,16 @@ public class StreetNameResolver {
             // Split the address into street number and street components
             Matcher addrMatches = ADDR_REGEX.matcher(addr);
 
-            // Hmmm, this doesn't really look like an address, bail out.
-            if(!addrMatches.matches()) {
-                return null;
+            // Yep, this looks like an address
+            if(addrMatches.matches()) {
+
+                // Get just the street *name* from the street
+                streetName = _isolateStreetName(addrMatches.group("street"));
+
+                // Add the street name to the cache. We don't really care if this gets clobbered,
+                // we put in the same val for a key no matter what.
+                _mStreetCache.put(streetCacheKey, streetName);
             }
-
-            // Get just the street *name* from the street
-            streetName = _isolateStreetName(addrMatches.group("street"));
-
-            // Add the street name to the cache. We don't really care if this gets clobbered,
-            // we put in the same val for a key no matter what.
-            _mStreetCache.put(streetCacheKey, streetName);
         }
 
         return streetName;
@@ -97,7 +95,7 @@ public class StreetNameResolver {
      * Street number (if we can.)
      * Results in a 17% speed increase over always running the regex and using group("street").
      *
-     * This optimizes for the common case of NUMBER STREET DESIGNATION? DIRECTION?
+     * This optimizes for the common case of NUMBER? STREET DESIGNATION? DIRECTION? with no garbage
      */
     private static String _getCacheableAddress(String addr) {
         // Regex matches are expensive! Try to get a cache hit without one.
@@ -105,17 +103,17 @@ public class StreetNameResolver {
 
         // charAt() probably doesn't work right with surrogate pairs.
         // but neither do our character checks
-        if(_isDigit(addr.charAt(0))) {
+        if(Character.isDigit(addr.charAt(0))) {
 
             // Check where the first space is
             int space_idx = addr.indexOf(' ');
 
+            // There's a space in the address
             if(space_idx != -1) {
 
-                // A street number may end in a lowercase letter but never in an uppercase letter.
-                // all street names use uppercase letters.
-                if (_isUpperCase(addr.charAt(space_idx - 1))) {
-                    // This is probably a street name, return as-is.
+                // An uppercase letter at the end of a token almost always means a street name.
+                if(Character.isUpperCase(addr.charAt(space_idx - 1))) {
+                    // return as-is, then.
                     return addr;
                 }
 
@@ -124,7 +122,7 @@ public class StreetNameResolver {
             }
         }
 
-        //Doesn't start with a digit, probably starts with a street name
+        //Doesn't start with a digit or has no spaces, probably starts with a street name
         return addr;
     }
 
@@ -158,21 +156,9 @@ public class StreetNameResolver {
                 ++lastNameElem;
                 break;
             }
-
         }
 
         // join together the tokens that make up the street's name and return
         return StringUtils.join(streetToks, ' ', 0, lastNameElem);
-    }
-
-    // isDigit and isUpperCase implementations that don't care about unicode.
-    // and don't require table lookups.
-    private static boolean _isDigit(char car) {
-        return car >= '0' && car <= '9';
-    }
-
-    // Avec mes excuses à mes amis, no latin1 either.
-    private static boolean _isUpperCase(char car) {
-        return car >= 'A' && car <= 'Z';
     }
 }

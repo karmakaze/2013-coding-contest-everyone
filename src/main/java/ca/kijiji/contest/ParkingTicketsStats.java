@@ -8,8 +8,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
 import org.slf4j.*;
-import com.google.common.collect.*;
 
 import ca.kijiji.contest.ticketworkers.*;
 
@@ -23,15 +25,40 @@ public class ParkingTicketsStats {
 
     private static final Logger LOG = LoggerFactory.getLogger(ParkingTicketsStats.class);
 
-    // How many tickets to skip by for each one we read, 3 is a decent balance of speed and accuracy.
-    private static final int SKIP_NUM_TICKETS = 3;
-
     // How many pending messages can be in the queue before insertions block
     private static final int MSG_QUEUE_SIZE = 4000;
 
+    // Assume that most lines in the CSV are going to be at least 76 chars long
+    // (lower quartile determined with awk)
+    private static final int MIN_LINE_LEN = 76;
 
+    /**
+     * Tabulates the total parking tickets per street with no fuzzing applied
+     * @param parkingTicketsStream Stream containing the CSV with the tickets
+     * @return A sorted map of Street Name -> Fines Issued
+     * @throws IOException
+     * @throws InterruptedException
+     */
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream)
             throws IOException, InterruptedException {
+
+        return sortStreetsByProfitability(parkingTicketsStream, 1);
+    }
+
+    /**
+     *
+     * @param parkingTicketsStream Stream containing the CSV with the tickets
+     * @param fuzzLevel Level of fuzzing to apply to the results, makes processing faster but less accurate.
+     *                  Is unreliable past 5.
+     * @return A sorted map of Street Name -> Fines Issued
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream, int fuzzLevel)
+            throws IOException, InterruptedException {
+
+        // How many lines to skip for every line we read
+        int numSkipLines = fuzzLevel;
 
         BufferedReader parkingCsvReader = new BufferedReader(new InputStreamReader(parkingTicketsStream));
 
@@ -40,11 +67,11 @@ public class ParkingTicketsStats {
         // Map of street name -> total fines
         ConcurrentHashMap<String, AtomicInteger> stats = new ConcurrentHashMap<>();
 
-        // Leave one core for the main thread, but always use at least one worker thread.
-        int numWorkerThreads = Math.max(Runtime.getRuntime().availableProcessors() - 1, 1);
+        // Use as many workers as we have cores - 1 up to a maximum of 3 workers, but always use at least one.
+        int numWorkerThreads = Math.max(Math.min(Runtime.getRuntime().availableProcessors() - 1, 3), 1);
 
-        // 1 worker thread is fastest when the main thread is wasting time skipping tickets anyways.
-        if(SKIP_NUM_TICKETS > 0)
+        // a single worker thread is fastest when the main thread is wasting time skipping tickets anyways.
+        if(numSkipLines > 0)
             numWorkerThreads = 1;
 
         // Set up communication with the threads
@@ -69,8 +96,13 @@ public class ParkingTicketsStats {
         while((parkingTicketLine = parkingCsvReader.readLine()) != null) {
             messageQueue.put(parkingTicketLine);
 
-            // For every ticket we read, skip SKIP_NUM_TICKETS.
-            for(int i=0; i < SKIP_NUM_TICKETS; ++i) {
+            // For every ticket we read, skip approximately numSkipLines lines.
+            if(numSkipLines > 0) {
+                // Skip by the number of characters per line * the number of lines to skip.
+                // Much faster than calling readLine() in a loop.
+                parkingCsvReader.skip(MIN_LINE_LEN * numSkipLines);
+
+                // Eat the remainder of whatever line we're on
                 parkingCsvReader.readLine();
             }
         }
@@ -83,10 +115,47 @@ public class ParkingTicketsStats {
 
         long startTime = System.currentTimeMillis();
         // Return an immutable map of the stats sorted by value
-        SortedStatsMap foo = new SortedStatsMap(stats, SKIP_NUM_TICKETS + 1);
+        SortedMap<String, Integer> foo = _finalizeStatsMap(stats, numSkipLines + 1);
         long duration = System.currentTimeMillis() - startTime;
         LOG.info("Duration of sort = {} ms", duration);
 
         return foo;
+    }
+
+    @SuppressWarnings("unchecked")
+    protected static SortedMap<String, Integer> _finalizeStatsMap(Map<String, AtomicInteger> stats, int multiplier) {
+
+        // Order by value, descending
+        Ordering<Map.Entry<String, AtomicInteger>> entryOrdering = Ordering.natural()
+                .onResultOf(new Function<Map.Entry<String, AtomicInteger>, Integer>() {
+                    public Integer apply(Map.Entry<String, AtomicInteger> entry) {
+                        return entry.getValue().intValue();
+                    }
+                }).reverse();
+
+        // Get a set of the map's entries and convert it to an array
+        Map.Entry<String, AtomicInteger>[] sortedResults = Iterables.toArray(stats.entrySet(), Map.Entry.class);
+
+        // Sort the array by the total of the fines for each entry
+        Arrays.sort(sortedResults, entryOrdering);
+
+        // Put the keys in sortedKeyOrder in order of the value of their associated entry
+        List<String> sortedKeyOrder = new LinkedList<>();
+
+        for (Map.Entry<String, AtomicInteger> entry : sortedResults) {
+            sortedKeyOrder.add(entry.getKey());
+        }
+
+        // Put the results into an immutable map ordered by value
+        ImmutableSortedMap.Builder<String, Integer> builder =
+                new ImmutableSortedMap.Builder<>(Ordering.explicit(sortedKeyOrder));
+
+        // Convert the totals to normal ints and apply the multiplier to the totals
+        // to arrive at our best guess of the fine total for each street
+        for (Map.Entry<String, AtomicInteger> entry : sortedResults) {
+            builder.put(entry.getKey(), entry.getValue().intValue() * multiplier);
+        }
+
+        return builder.build();
     }
 }
