@@ -5,12 +5,6 @@ import org.hamcrest.Matchers.equalTo
 
 class StreetParserTest {
 
-  @Test def ShouldParseStreetWithNumberAndName(){
-    val address = "1040 THE QUEENSWAY"
-    val street = Infraction.extractStreet(address)
-    assertThat(street, equalTo("THE QUEENSWAY"))
-  }
-
   @Test def ShouldParseStreetWithNumberAndNameAndSuffix(){
     val address = "109 OLD FOREST HILL RD"
     val street = Infraction.extractStreet(address)

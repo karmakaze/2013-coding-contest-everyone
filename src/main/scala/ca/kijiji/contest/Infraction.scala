@@ -7,33 +7,40 @@ class Infraction(val id:String, val date:String, val code:Int, val desc:String, 
 {
   override def toString = "$" + amt + " at " + loc2
 
-  def toParkingInfraction = new ParkingInfraction(extractStreet(loc2),amt)
-
-  private def extractStreet(loc2:String):String =  {
-    val arr = loc2.split(' ')
-    if(isAllDigits(arr(0)))
-      arr(1) + " " + arr(2)
-    else
-      arr(0)
-  }
-  private def isAllDigits(x: String) = x forall Character.isDigit
+  def toParkingInfraction = new ParkingInfraction(Infraction.extractStreet(loc2),amt)
 }
 
 object Infraction
 {
-  def fromCSV(csv:Array[String]): Infraction =
+  def fromCSV(csv:Array[String]): Infraction = {
+    println(csv.mkString(" "))
     new Infraction(csv(0),csv(1), csv(2).toInt, csv(3), csv(4).toInt, csv(5),
                    csv(6), csv(7), csv(8), csv(9), csv(10))
+  }
+
+  def fromString(line:String) : ParkingInfraction = {
+    val csv = line.split(',')
+    if(csv.length < 8)
+      println(line)
+    new ParkingInfraction(Infraction.extractStreet(csv(7)), csv(4).toInt)
+  }
 
   def extractStreet(address:String):String = {
-    val arr = address.split(' ')
-    if(isAllDigits(arr(0)))
-      arr(1) + " " + arr(2)
-    else
-      arr(0)
+    var arr = address.split(' ')
+    if(arr.length > 1)
+    {
+      if(isAllDigits(arr(0)))
+        arr = arr.drop(1)
+      if(isOrientation(arr(arr.length - 1)))
+        arr = arr.dropRight(2)
+      else
+        arr = arr.dropRight(1)
+    }
+    arr.mkString(" ")
   }
 
   private def isAllDigits(x: String) = x forall Character.isDigit
+  private def isOrientation(x: String) = List("N", "S", "E", "W", "EAST", "WEST").contains(x)
 }
 
 class ParkingInfraction(val street:String, val amount:Int)

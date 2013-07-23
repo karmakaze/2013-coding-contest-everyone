@@ -10,9 +10,14 @@ object ParkingTicketsStats {
     //skip the first line
     iterator.next()
 
+    val hashMap = new scala.collection.concurrent.TrieMap[String, Integer]()
     //iterate through lines
-    iterator.foreach(i => println(Infraction.fromCSV(i.split(',')).toParkingInfraction.toString))
+    iterator.foreach(i => {
+      val inf = Infraction.fromString(i)
+      val prev : Integer = hashMap.getOrElse(inf.street, 0)
+      hashMap.put(inf.street, prev + inf.amount)
+    })
 
-    return new util.TreeMap()
+    return new java.util.TreeMap[String, Integer](scala.collection.JavaConversions.mapAsJavaMap(hashMap))
   }
 }
