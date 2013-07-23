@@ -2,11 +2,14 @@ package ca.kijiji.contest;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.collections.MultiHashMap;
+import org.apache.commons.collections.MultiMap;
 import org.apache.commons.lang3.StringUtils;
 
 import ca.kijiji.contest.exceptions.UnparseableLocationException;
@@ -118,7 +121,19 @@ public class StreetUtil {
     	NUMBERED_STREET_ENDINGS.add("RD");
     	NUMBERED_STREET_ENDINGS.add("TH");
     }
-    
+
+    private static MultiMap FAT_FINGERS = null;
+    static {
+    	FAT_FINGERS = new MultiHashMap();
+    	for (String suffix : SUFFIX_EQUIV_MAP.keySet()) {
+    		if (!suffix.equals("")) {
+	    		String fatFingerBegin = String.valueOf(suffix.charAt(0));
+	    		String fatFingerSuffix = suffix.substring(1);
+	    		FAT_FINGERS.put(fatFingerBegin, fatFingerSuffix);
+    		}
+    	}
+    }
+
     /**
      * Determines if a string is a suffix.
      * @param s The string that may or may not be a suffix.
@@ -152,8 +167,7 @@ public class StreetUtil {
     		}
     	}
     	
-    	return startsWithNumber && numberedEnding;
-    	
+    	return startsWithNumber && numberedEnding;    	
     }
     
     /**
@@ -170,6 +184,38 @@ public class StreetUtil {
     	
     	return sanitizedLocation.trim();
     }
+    
+    public static String getTypoSuffix(String previousToLastPart, String lastPart) {
+    	if (previousToLastPart == null || previousToLastPart.length() < 1) {
+    		return null;
+    	}
+    	
+    	String lastCharOfPreviousToLastPart = String.valueOf(previousToLastPart.charAt(previousToLastPart.length() - 1));
+    	boolean previousToLastPartEndsWithFatFingerChar = FAT_FINGERS.containsKey(lastCharOfPreviousToLastPart);
+    	
+    	String realSuffix = null;
+    	boolean lastPartIsFatFingerEnd = false;
+    	Collection<String> possibleSuffixEndings = (Collection<String>) FAT_FINGERS.get(lastCharOfPreviousToLastPart);
+    	// If no suffixes exist then there wasn't a typo suffix.
+    	if (possibleSuffixEndings == null) {
+    		return null;
+    	}
+    	for (String possibleEnding : possibleSuffixEndings) {
+    		if (lastPart.equals(possibleEnding)) {
+    			String suffix = String.format("%s%s", lastCharOfPreviousToLastPart, possibleEnding);
+    			realSuffix = SUFFIX_EQUIV_MAP.get(suffix);
+    			lastPartIsFatFingerEnd = true;
+    			break;
+    		}
+    	}    	
+    	if (previousToLastPartEndsWithFatFingerChar && lastPartIsFatFingerEnd) {
+    		return realSuffix;
+    	}
+    	else {
+    		return null;
+    	}
+    }
+    
     
     /**
      * Takes a location (combination of optional number, street, suffix, and optional direction) 
@@ -191,10 +237,23 @@ public class StreetUtil {
     		locationParts = Arrays.copyOfRange(locationParts, 0, locationParts.length - 1);
     	}
 
-    	boolean hasSuffix = StreetUtil.isSuffix(locationParts[locationParts.length - 1]);
+    	String lastPart = locationParts[locationParts.length - 1];
+    	String previousToLastPart = null;
+    	if (locationParts.length > 1) {
+    		previousToLastPart = locationParts[locationParts.length - 2];
+    	}
+    	boolean hasSuffix = StreetUtil.isSuffix(lastPart);
 		if (hasSuffix) {
 			locationParts = Arrays.copyOfRange(locationParts, 0, locationParts.length - 1);
 		}
+		
+		String typoSuffix = getTypoSuffix(previousToLastPart, lastPart);
+    	if (typoSuffix != null) {
+    		String[] streetPlusExtraLetter = Arrays.copyOfRange(locationParts, 0, locationParts.length - 1);
+    		String streetEnd = streetPlusExtraLetter[streetPlusExtraLetter.length - 1];
+    		streetPlusExtraLetter[streetPlusExtraLetter.length - 1] = streetEnd.substring(0, streetEnd.length() - 1);
+    		locationParts = streetPlusExtraLetter;
+    	}
     			
 		boolean isNumberedStreet = StreetUtil.isNumberedStreet(locationParts[0]);
 		boolean isAddressNumber = Character.isDigit(locationParts[0].charAt(0));
