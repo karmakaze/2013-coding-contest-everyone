@@ -125,7 +125,8 @@ public class ParkingTicketsStats {
 
     /**
      * Create a sorted and immutable copy of a map of total profit from parking tickets by street
-     * @param stats total profit map
+     * converts from the internal value format (AtomicInteger) to Integer at the same time.
+     * @param stats internal total profit map
      * @param multiplier multiplier to apply to the total for each street
      * @return A sorted and immutable map of profit stats
      */

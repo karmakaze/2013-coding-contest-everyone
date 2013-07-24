@@ -4,6 +4,7 @@ import ca.kijiji.contest.CSVUtils;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.*;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -14,10 +15,9 @@ public abstract class AbstractTicketWorker extends Thread {
 
     private static final Logger LOG = LoggerFactory.getLogger(StreetProfitTabulator.class);
 
-    private static int mNumCSVCols;
+    private int _mNumCSVCols;
 
-    protected static int mAddressColIdx;
-    protected static int mFineColIdx;
+    private List<String> _mCSVCols = new ArrayList<>();
 
     // Message that marks the end of processing. Use something that won't show up in any other valid
     // message in case String.intern is called on message sent (we use identity comparison.)
@@ -43,20 +43,23 @@ public abstract class AbstractTicketWorker extends Thread {
 
     /**
      * Set the column indexes for the relevant fields given a parsed CSV header
-     * @param cols CSV header columns
      */
     public void setColumns(String[] cols) {
-        mNumCSVCols = cols.length;
+        _mNumCSVCols = cols.length;
+        _mCSVCols = Arrays.asList(cols);
+    }
 
-        List<String> colsList = Arrays.asList(cols);
-        mAddressColIdx = colsList.indexOf("location2");
-        mFineColIdx = colsList.indexOf("set_fine_amount");
+    /**
+     * Given an array representing the columns of a row, return the column associated with colName
+     */
+    protected String getColumn(String[] cols, String colName) {
+        return cols[_mCSVCols.indexOf(colName)];
     }
 
     public void run () {
 
         // Make sure we've called setColumns
-        assert(mNumCSVCols != 0);
+        assert(_mNumCSVCols != 0);
 
         // Start the infinite message loop, quit when we get an END message.
         for(;;) {
@@ -81,17 +84,17 @@ public abstract class AbstractTicketWorker extends Thread {
 
                 // Is this line properly formed? (This check will fail on valid CSVs
                 // with variable column numbers and embedded commas)
-                if(ticketCols.length != mNumCSVCols) {
+                if(ticketCols.length != _mNumCSVCols) {
 
                     // Process the CSV line *properly*
                     ticketCols = CSVUtils.parseCSVLine(message);
 
                     // Do we have the correct number of columns now?
-                    if(ticketCols.length != mNumCSVCols) {
+                    if(ticketCols.length != _mNumCSVCols) {
 
                         // Print an error and skip to the next line
                         String msg = String.format("Expected %d columns, got %d (invalid tickets file?):\n%s",
-                                mNumCSVCols, ticketCols.length, message);
+                                _mNumCSVCols, ticketCols.length, message);
                         LOG.warn(msg);
                         continue;
                     }

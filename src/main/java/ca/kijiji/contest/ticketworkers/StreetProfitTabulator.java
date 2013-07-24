@@ -34,7 +34,7 @@ public class StreetProfitTabulator extends AbstractTicketWorker {
      */
     protected void processTicketCols(String[] ticketCols) {
         // Get the column containing the address of the infraction
-        String address = ticketCols[mAddressColIdx].trim();
+        String address = getColumn(ticketCols, "location2").trim();
 
         // We can't do anything if there's no address, fetch the next ticket
         if(address.isEmpty()) {
@@ -47,7 +47,7 @@ public class StreetProfitTabulator extends AbstractTicketWorker {
         // We were able to parse a street name out of the address
         if(streetName != null && !streetName.isEmpty()) {
             // Figure out how much the fine for this infraction was
-            Integer fine = Ints.tryParse(ticketCols[mFineColIdx]);
+            Integer fine = Ints.tryParse(getColumn(ticketCols, "set_fine_amount"));
 
             if(fine != null) {
                 addFineTo(streetName, fine);
