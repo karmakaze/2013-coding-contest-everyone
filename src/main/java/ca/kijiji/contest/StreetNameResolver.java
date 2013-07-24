@@ -7,7 +7,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Ints;
 import org.apache.commons.lang.StringUtils;
 
 /**
@@ -95,7 +94,7 @@ public class StreetNameResolver {
                 }
 
                 // Reject street names that are *entirely* comprised of numbers
-                if(Ints.tryParse(streetName) != null) {
+                if(StringUtils.isNumericSpace(streetName)) {
                     return null;
                 }
 
