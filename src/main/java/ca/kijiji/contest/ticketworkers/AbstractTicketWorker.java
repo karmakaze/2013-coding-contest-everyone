@@ -19,7 +19,8 @@ public abstract class AbstractTicketWorker extends Thread {
     protected static int mAddressColIdx;
     protected static int mFineColIdx;
 
-    // Message that marks the end of processing.
+    // Message that marks the end of processing. Use something that won't show up in any other valid
+    // message in case String.intern is called on message sent (we use identity comparison.)
     public static final String END_MSG = "\n\n\n";
 
     // decrement this when we leave run(), means no running worker threads when at 0
@@ -61,7 +62,7 @@ public abstract class AbstractTicketWorker extends Thread {
         for(;;) {
             try {
 
-                // Block until we have a new message
+                // Block until we have a new message.
                 String message;
                 while((message =  _mMessageQueue.poll()) == null) {
                     Thread.yield();
