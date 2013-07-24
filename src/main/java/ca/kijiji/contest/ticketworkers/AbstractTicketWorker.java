@@ -4,41 +4,58 @@ import ca.kijiji.contest.CSVUtils;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.*;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class AbstractTicketWorker extends Thread {
 
-    private static final Logger LOG = LoggerFactory.getLogger(StreetFineTabulator.class);
+    private static final Logger LOG = LoggerFactory.getLogger(StreetProfitTabulator.class);
 
-    protected static final int NUM_CSV_COLS = 11;
+    private static int mNumCSVCols;
 
-    protected static final int ADDR_COLUMN = 7;
-    protected static final int FINE_COLUMN = 4;
+    protected static int mAddressColIdx;
+    protected static int mFineColIdx;
 
     // Message that marks the end of processing.
     public static final String END_MSG = "\n\n\n";
 
     // decrement this when we leave run(), means no running worker threads when at 0
-    protected final CountDownLatch _mRunningCounter;
-
-    // Number of errors we've come across during our work
-    protected final AtomicInteger _mErrCounter;
+    private final CountDownLatch _mRunningCounter;
 
     // How the main thread communicates with us
-    protected final LinkedBlockingQueue<String> _mMessageQueue;
+    private final LinkedBlockingQueue<String> _mMessageQueue;
+
+    // Number of errors we've come across during our work
+    protected final AtomicInteger mErrCounter;
 
 
 
-    protected AbstractTicketWorker(CountDownLatch counter, AtomicInteger errCounter, LinkedBlockingQueue<String> queue) {
-        _mRunningCounter = counter;
-        _mErrCounter = errCounter;
+    protected AbstractTicketWorker(CountDownLatch runCounter, AtomicInteger errCounter, LinkedBlockingQueue<String> queue) {
+        _mRunningCounter = runCounter;
         _mMessageQueue = queue;
+
+        mErrCounter = errCounter;
     }
 
+    /**
+     * Set the column indexes for the relevant fields given a parsed CSV header
+     * @param cols CSV header columns
+     */
+    public void setColumns(String[] cols) {
+        mNumCSVCols = cols.length;
+
+        List<String> colsList = Arrays.asList(cols);
+        mAddressColIdx = colsList.indexOf("location2");
+        mFineColIdx = colsList.indexOf("set_fine_amount");
+    }
 
     public void run () {
+
+        // Make sure we've called setColumns
+        assert(mNumCSVCols != 0);
 
         // Start the infinite message loop, quit when we get an END message.
         for(;;) {
@@ -63,17 +80,17 @@ public abstract class AbstractTicketWorker extends Thread {
 
                 // Is this line properly formed? (This check will fail on valid CSVs
                 // with variable column numbers and embedded commas)
-                if(ticketCols.length != NUM_CSV_COLS) {
+                if(ticketCols.length != mNumCSVCols) {
 
                     // Process the CSV line *properly*
                     ticketCols = CSVUtils.parseCSVLine(message);
 
                     // Do we have the correct number of columns now?
-                    if(ticketCols.length != NUM_CSV_COLS) {
+                    if(ticketCols.length != mNumCSVCols) {
 
                         // Print an error and skip to the next line
                         String msg = String.format("Expected %d columns, got %d (invalid tickets file?):\n%s",
-                                NUM_CSV_COLS, ticketCols.length, message);
+                                mNumCSVCols, ticketCols.length, message);
                         LOG.warn(msg);
                         continue;
                     }

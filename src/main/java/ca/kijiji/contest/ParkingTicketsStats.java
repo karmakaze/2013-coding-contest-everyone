@@ -11,6 +11,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.*;
 
 import ca.kijiji.contest.ticketworkers.*;
@@ -29,9 +30,9 @@ public class ParkingTicketsStats {
     private static final int MSG_QUEUE_SIZE = 4096;
 
     /**
-     * Tabulates the total parking tickets per street with no fuzzing applied
+     * Tabulates the total value of the parking tickets issued per street with no fuzzing applied
      * @param parkingTicketsStream Stream containing the CSV with the tickets
-     * @return A sorted map of Street Name -> Fines Issued
+     * @return A sorted map of Street Name -> Total Profit
      * @throws IOException
      * @throws InterruptedException
      */
@@ -42,32 +43,30 @@ public class ParkingTicketsStats {
     }
 
     /**
-     *
+     * Tabulates the total value of the parking tickets issued per street
      * @param parkingTicketsStream Stream containing the CSV with the tickets
-     * @param fuzzLevel Level of fuzzing to apply to the results, makes processing faster but less accurate.
-     *                  Is unreliable past 5.
-     * @return A sorted map of Street Name -> Fines Issued
+     * @param numSkipTickets How many tickets to skip for each one read, makes processing faster but less accurate.
+     *                       The total profit is adjusted to arrive at our best guess without reading every ticket.
+     *                       The appropriate value depends on your use-case, but may be unreliable past 6.
+     * @return A sorted map of Street Name -> Total Profit
      * @throws IOException
      * @throws InterruptedException
      */
-    public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream, int fuzzLevel)
+    public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream, int numSkipTickets)
             throws IOException, InterruptedException {
-
-        // How many lines to skip for every line we read
-        int numSkipLines = fuzzLevel;
 
         BufferedReader parkingCsvReader = new BufferedReader(new InputStreamReader(parkingTicketsStream));
 
         // Normalized name cache, makes it complete around 30% faster on my PC.
         StreetNameResolver streetNameResolver = new StreetNameResolver();
-        // Map of street name -> total fines
+        // Map of street name -> total profit
         ConcurrentHashMap<String, AtomicInteger> stats = new ConcurrentHashMap<>();
 
         // Use as many workers as we have cores - 1 up to a maximum of 3 workers, but always use at least one.
         int numWorkerThreads = Math.max(Math.min(Runtime.getRuntime().availableProcessors() - 1, 3), 1);
 
-        // A single worker thread is fastest when the main thread is wasting time skipping tickets anyways.
-        if(numSkipLines > 0)
+        // A single worker thread is fastest when the main thread is wasting its time skipping tickets anyways.
+        if(numSkipTickets > 2)
             numWorkerThreads = 1;
 
         // Set up communication with the threads
@@ -77,17 +76,21 @@ public class ParkingTicketsStats {
         // Count the number of bogus addresses we hit
         AtomicInteger errCounter = new AtomicInteger(0);
 
+
+        // Parse out the column header
+        String[] csvCols = StringUtils.splitPreserveAllTokens(parkingCsvReader.readLine(), ',');
+
         // Dispatch using a ThreadPool and Runnable for each entry was 2 times slower than manually
         // handling task dispatch, slower than the non-threaded version! Manually manage work dispatch
         // with long-running threads.
 
         // Set up the worker threads
         for(int i = 0; i < numWorkerThreads; ++i) {
-            new StreetFineTabulator(countDownLatch, messageQueue, errCounter, stats, streetNameResolver).start();
+            AbstractTicketWorker worker =
+                    new StreetProfitTabulator(countDownLatch, messageQueue, errCounter, stats, streetNameResolver);
+            worker.setColumns(csvCols);
+            worker.start();
         }
-
-        // Throw away the line with the header
-        parkingCsvReader.readLine();
 
         // Keep sending lines to workers til we hit EOF. It's not valid to read CSVs
         // this way according to the spec, but none of the columns contain escaped newlines.
@@ -95,13 +98,15 @@ public class ParkingTicketsStats {
         while((parkingTicketLine = parkingCsvReader.readLine()) != null) {
             messageQueue.put(parkingTicketLine);
 
-            for(int i=0; i<numSkipLines; ++i) {
+            // Skip by tickets we don't need to read, this doesn't handle clusters smaller than
+            // numSkipTickets well and assumes relatively normal distribution.
+            for(int i=0; i < numSkipTickets; ++i) {
                 parkingCsvReader.readLine();
             }
         }
 
         // Tell the worker threads we have nothing left
-        messageQueue.put(StreetFineTabulator.END_MSG);
+        messageQueue.put(StreetProfitTabulator.END_MSG);
 
         // Wait for the workers to finish
         countDownLatch.await();
@@ -109,17 +114,18 @@ public class ParkingTicketsStats {
         // If there were any errors, print how many
         int numErrs = errCounter.get();
         if(numErrs > 0) {
-            LOG.warn(String.format("Hit %d bogus addreses during processing", numErrs));
+            LOG.warn(String.format("Encountered %d errors during processing", numErrs));
         }
 
+        LOG.info(String.format("%d cache hits for street name lookups", streetNameResolver.getCacheHits()));
+
         // Return an immutable map of the stats sorted by value
-        return _finalizeStatsMap(stats, numSkipLines + 1);
+        return _finalizeStatsMap(stats, numSkipTickets + 1);
     }
 
-    @SuppressWarnings("unchecked")
     protected static SortedMap<String, Integer> _finalizeStatsMap(Map<String, AtomicInteger> stats, int multiplier) {
 
-        // Order by value, descending
+        // Order by profit, descending
         Ordering<Map.Entry<String, AtomicInteger>> entryOrdering = Ordering.natural()
                 .onResultOf(new Function<Map.Entry<String, AtomicInteger>, Integer>() {
                     public Integer apply(Map.Entry<String, AtomicInteger> entry) {
@@ -127,16 +133,17 @@ public class ParkingTicketsStats {
                     }
                 }).reverse();
 
-        // Get a set of the map's entries and convert it to an array
-        Map.Entry<String, AtomicInteger>[] sortedResults = Iterables.toArray(stats.entrySet(), Map.Entry.class);
+        // Convert the map's entries to an array
+        Map.Entry<String, AtomicInteger>[] sortedStatsSet =
+                (Map.Entry<String, AtomicInteger>[])Iterables.toArray(stats.entrySet(), Map.Entry.class);
 
-        // Sort the array by the total of the fines for each entry
-        Arrays.sort(sortedResults, entryOrdering);
+        // Sort the array by the total profit for each entry
+        Arrays.sort(sortedStatsSet, entryOrdering);
 
         // Put the keys in sortedKeyOrder in order of the value of their associated entry
-        List<String> sortedKeyOrder = new LinkedList<>();
+        List<String> sortedKeyOrder = new ArrayList<>(sortedStatsSet.length);
 
-        for (Map.Entry<String, AtomicInteger> entry : sortedResults) {
+        for (Map.Entry<String, AtomicInteger> entry : sortedStatsSet) {
             sortedKeyOrder.add(entry.getKey());
         }
 
@@ -145,8 +152,8 @@ public class ParkingTicketsStats {
                 new ImmutableSortedMap.Builder<>(Ordering.explicit(sortedKeyOrder));
 
         // Convert the totals to normal ints and apply the multiplier to the totals
-        // to arrive at our best guess of the fine total for each street
-        for (Map.Entry<String, AtomicInteger> entry : sortedResults) {
+        // to arrive at our best guess of the total profit for each street
+        for (Map.Entry<String, AtomicInteger> entry : sortedStatsSet) {
             builder.put(entry.getKey(), entry.getValue().intValue() * multiplier);
         }
 
