@@ -94,7 +94,7 @@ public final class Latin1AddressParser implements AddressParser
             }
         }
 
-        if(sb.length() == 0){
+        if(sb.length() < 2){
             return null;
         }
 
