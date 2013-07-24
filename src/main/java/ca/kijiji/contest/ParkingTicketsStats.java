@@ -130,13 +130,14 @@ public class ParkingTicketsStats {
      * @param multiplier multiplier to apply to the total for each street
      * @return A sorted and immutable map of profit stats
      */
-    protected static SortedMap<String, Integer> _finalizeStatsMap(Map<String, AtomicInteger> stats, int multiplier) {
+    protected static SortedMap<String, Integer> _finalizeStatsMap(Map<String, ? extends Number> stats, int multiplier) {
 
         // Order by profit, descending
-        // This isn't as easy as it would normally be as I've used AtomicIntegers instead of Integers
-        Ordering<Map.Entry<String, AtomicInteger>> entryOrdering = Ordering.natural()
-                .onResultOf(new Function<Map.Entry<String, AtomicInteger>, Integer>() {
-                    public Integer apply(Map.Entry<String, AtomicInteger> entry) {
+        // This isn't as straightforward as it would normally be as I've used AtomicIntegers instead of Integers
+        // and AtomicInteger doesn't implement Comparable
+        Ordering<Map.Entry<String, ? extends Number>> entryOrdering = Ordering.natural()
+                .onResultOf(new Function<Map.Entry<String, ? extends Number>, Integer>() {
+                    public Integer apply(Map.Entry<String, ? extends Number> entry) {
                         return entry.getValue().intValue();
                     }
                 }).reverse();
@@ -144,7 +145,7 @@ public class ParkingTicketsStats {
         // Don't complain about generic array operations in the next statement
         @SuppressWarnings("unchecked")
         // Convert the map's entries to an array
-        Map.Entry<String, AtomicInteger>[] sortedStatsSet = Iterables.toArray(stats.entrySet(), Map.Entry.class);
+        Map.Entry<String, ? extends Number>[] sortedStatsSet = Iterables.toArray(stats.entrySet(), Map.Entry.class);
 
         // Sort the array by the total profit for each entry
         Arrays.sort(sortedStatsSet, entryOrdering);
@@ -152,7 +153,7 @@ public class ParkingTicketsStats {
         // Put the keys in sortedKeyOrder in order of the value of their associated entry
         List<String> sortedKeyOrder = new ArrayList<>(sortedStatsSet.length);
 
-        for (Map.Entry<String, AtomicInteger> entry : sortedStatsSet) {
+        for (Map.Entry<String, ? extends Number> entry : sortedStatsSet) {
             sortedKeyOrder.add(entry.getKey());
         }
 
@@ -165,7 +166,7 @@ public class ParkingTicketsStats {
 
         // Convert the totals to normal ints and apply the multiplier to the totals
         // to arrive at our best guess of the total profit for each street
-        for (Map.Entry<String, AtomicInteger> entry : sortedStatsSet) {
+        for (Map.Entry<String, ? extends Number> entry : sortedStatsSet) {
             builder.put(entry.getKey(), entry.getValue().intValue() * multiplier);
         }
 
