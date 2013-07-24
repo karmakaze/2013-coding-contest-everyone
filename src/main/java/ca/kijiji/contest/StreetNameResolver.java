@@ -120,7 +120,7 @@ public class StreetNameResolver {
      *
      * This optimizes for the common case of NUMBER? STREET DESIGNATION? DIRECTION? with no garbage.
      * We also prefer a cache miss to a false cache hit, for example:
-     * "1B YONGE ST" won't be modified and will likely result in a cache miss so we can handle "12TH ST"
+     * "1B YONGE ST" won't be modified and will likely result in a cache miss to properly handle "12TH ST"
      */
     private static String _getCacheableAddress(String address) {
 
