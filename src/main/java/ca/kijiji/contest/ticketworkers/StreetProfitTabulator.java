@@ -45,7 +45,7 @@ public class StreetProfitTabulator extends AbstractTicketWorker {
         String streetName = _mStreetNameResolver.addressToStreetName(address);
 
         // We were able to parse a street name out of the address
-        if(streetName != null && !streetName.trim().isEmpty()) {
+        if(streetName != null && !streetName.isEmpty()) {
             // Figure out how much the fine for this infraction was
             Integer fine = Ints.tryParse(ticketCols[mFineColIdx]);
 
@@ -54,10 +54,10 @@ public class StreetProfitTabulator extends AbstractTicketWorker {
             } else {
                 mErrCounter.getAndIncrement();
             }
-        }
-        // There are plenty of funky looking addresses in the CSV, they're really not exceptional.
-        // Just log whatever weirdness we get and ignore it.
-        else {
+        } else {
+            // There are plenty of funky looking addresses in the CSV, they're really not exceptional.
+            // Just make a note of whatever weirdness we get and ignore it.
+
             mErrCounter.getAndIncrement();
 
             // I don't know what it is about log4j's appenders, but printing 50 of these

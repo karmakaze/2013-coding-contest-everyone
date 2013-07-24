@@ -16,23 +16,23 @@ import org.apache.commons.lang.StringUtils;
  */
 public class StreetNameResolver {
 
-    // Regex to separate the street number from the street name.
+    // Regex to separate the street number from the street.
     // There need not be a street number, but it must be a combination of digits, punctuation and lowercase letters.
-    // (ex. "123/345", "12451&2412", "2412a", "33-44", "235-a", "22, 77b")
+    // optionally followed by a single uppercase letter (ex. "123/345", "12451&2412", "2412J", "33-44", "235-a", "22, 77b")
     // Also handles junk street numbers (like "222-", "-33", "!33", "1o2", "l22"). OCR must have been used for some of the
     // data entry since o's and l's are mixed with 0s and 1s. We consider lower-case letters to be part of the street number
     // since that's the only place they show up, though one upper-case letter may appear on the *end* of a number (for
-    // the unit.) This will erroneously match streets like 1E AVENUE, but no such streets exist in Toronto.
+    // the unit.) This will erroneously match the "2E" of streets like 2E AVENUE, but no such streets exist in Toronto.
     private static final String STREET_NUM_REGEX = "(?<num>[\\p{N}\\p{Ll}\\-&/,\\. ]*\\p{Lu}?)";
 
     // Street names, designations and directions are all upper-case. Fails on streets with periods in the name proper
     // in favor of discarding periods at the end of street designation abbreviations.
-    private static final String STREET_NAME_REGEX = "(?<street>[\\p{N}\\p{L} '-]*)\\.?";
+    private static final String STREET_REGEX = "(?<street>[\\p{N}\\p{L} '-]*)\\.?";
 
     // Ignore garbage at the beginning and end of the string and pull out the street numbers / names
     // Whoever released this data set as-is is a sadist.
     private static final Pattern ADDRESS_REGEX =
-            Pattern.compile("^[^\\p{N}\\p{L}]*(" + STREET_NUM_REGEX + "[^\\p{N}\\p{L}]*\\s+)?" + STREET_NAME_REGEX + ".*");
+            Pattern.compile("^[^\\p{N}\\p{L}]*(" + STREET_NUM_REGEX + "[^\\p{N}\\p{L}]*\\s+)?" + STREET_REGEX + ".*");
 
     // Set of directions a street may end with
     private static final ImmutableSet<String> DIRECTION_SET = ImmutableSet.of(
@@ -65,7 +65,9 @@ public class StreetNameResolver {
     }
 
     /**
-     * Get a street name (ex: FAKE) from an address (ex: 123 FAKE ST W)
+     * Get a street name from an address
+     * @param address the address to parse a street name from (ex: "123 FAKE ST W")
+     * @return a street name (ex: "FAKE") or null if a street name couldn't be parsed out
      */
     public String addressToStreetName(String address) {
 
@@ -87,6 +89,11 @@ public class StreetNameResolver {
                 // Get just the street *name* from the street
                 streetName = _isolateStreetName(addressMatcher.group("street"));
 
+                // No tokens left in the street name, it's likely invalid.
+                if(streetName.isEmpty()) {
+                    return null;
+                }
+
                 // Reject street names that are *entirely* comprised of numbers
                 if(Ints.tryParse(streetName) != null) {
                     return null;
@@ -103,10 +110,6 @@ public class StreetNameResolver {
         return streetName;
     }
 
-    /**
-     * Get the number of lookups that could be done via cache lookup.
-     * @return number of cache hits
-     */
     public int getCacheHits() {
         return _mCacheHits.intValue();
     }
@@ -117,12 +120,10 @@ public class StreetNameResolver {
      * Results in a 17% speed increase over always running the full street name parser.
      *
      * This optimizes for the common case of NUMBER? STREET DESIGNATION? DIRECTION? with no garbage.
-     * We also prefer a false cache miss to a false cache hit, for example:
+     * We also prefer a cache miss to a false cache hit, for example:
      * "1B YONGE ST" won't be modified and will likely result in a cache miss so we can handle "12TH ST"
      */
     private static String _getCacheableAddress(String address) {
-        // Regex matches are expensive! Try to get a cache hit without one.
-        // Remove the street number from the start of the address if there is one.
 
         // charAt() probably doesn't work right with surrogate pairs.
         // but neither do our character checks
@@ -168,8 +169,8 @@ public class StreetNameResolver {
 
             // There may be multiple direction tokens (N E, S E, etc.) but they never show up before a
             // street designation. Stop looking at tokens as soon as we hit the first token that looks
-            // like a street designation, otherwise we'll mangle names like "HILL STREET"
-            // streets like "GROVE" with no designator will get mangled, but junk in junk out.
+            // like a street designation, otherwise we'll mangle names like "HILL STREET".
+            // Streets like "GROVE" with no designator will get mangled, but junk in junk out.
             if(DESIGNATION_SET.contains(token)) {
                 break;
             }

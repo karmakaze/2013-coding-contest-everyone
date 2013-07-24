@@ -2,15 +2,11 @@ package ca.kijiji.contest;
 
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.collect.*;
 import com.google.common.base.Function;
-import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Ordering;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.*;
 
@@ -43,7 +39,7 @@ public class ParkingTicketsStats {
     }
 
     /**
-     * Tabulates the total value of the parking tickets issued per street
+     * Tabulates the total profit from parking tickets by street
      * @param parkingTicketsStream Stream containing the CSV with the tickets
      * @param numSkipTickets How many tickets to skip for each one read, makes processing faster but less accurate.
      *                       The total profit is adjusted to arrive at our best guess without reading every ticket.
@@ -62,12 +58,16 @@ public class ParkingTicketsStats {
         // Map of street name -> total profit
         ConcurrentHashMap<String, AtomicInteger> stats = new ConcurrentHashMap<>();
 
-        // Use as many workers as we have cores - 1 up to a maximum of 3 workers, but always use at least one.
-        int numWorkerThreads = Math.max(Math.min(Runtime.getRuntime().availableProcessors() - 1, 3), 1);
+        // Get the number of cores (not counting the one used by the main thread)
+        int freeCores = Runtime.getRuntime().availableProcessors() - 1;
+
+        // Use as many workers as we have free cores, up to a maximum of 3 workers, always using at least one.
+        int numWorkerThreads = Math.max(Math.min(freeCores, 3), 1);
 
         // A single worker thread is fastest when the main thread is wasting its time skipping tickets anyways.
-        if(numSkipTickets > 2)
+        if(numSkipTickets > 2) {
             numWorkerThreads = 1;
+        }
 
         // Set up communication with the threads
         LinkedBlockingQueue<String> messageQueue = new LinkedBlockingQueue<>(MSG_QUEUE_SIZE);
@@ -92,8 +92,8 @@ public class ParkingTicketsStats {
             worker.start();
         }
 
-        // Keep sending lines to workers til we hit EOF. It's not valid to read CSVs
-        // this way according to the spec, but none of the columns contain escaped newlines.
+        // Keep sending lines to workers til we hit EOF. It's not valid to read CSVs this way
+        // according to the spec, but none of the columns contain escaped newlines.
         String parkingTicketLine;
         while((parkingTicketLine = parkingCsvReader.readLine()) != null) {
             messageQueue.put(parkingTicketLine);
@@ -117,12 +117,18 @@ public class ParkingTicketsStats {
             LOG.warn(String.format("Encountered %d errors during processing", numErrs));
         }
 
-        LOG.info(String.format("%d cache hits for street name lookups", streetNameResolver.getCacheHits()));
+        LOG.info(String.format("%d cache hits for street name look-ups", streetNameResolver.getCacheHits()));
 
         // Return an immutable map of the stats sorted by value
         return _finalizeStatsMap(stats, numSkipTickets + 1);
     }
 
+    /**
+     * Create a sorted and immutable copy of a map of total profit from parking tickets by street
+     * @param stats total profit map
+     * @param multiplier multiplier to apply to the total for each street
+     * @return A sorted and immutable map of profit stats
+     */
     protected static SortedMap<String, Integer> _finalizeStatsMap(Map<String, AtomicInteger> stats, int multiplier) {
 
         // Order by profit, descending
@@ -133,9 +139,10 @@ public class ParkingTicketsStats {
                     }
                 }).reverse();
 
+        // Don't complain about generic array operations in the next statement
+        @SuppressWarnings("unchecked")
         // Convert the map's entries to an array
-        Map.Entry<String, AtomicInteger>[] sortedStatsSet =
-                (Map.Entry<String, AtomicInteger>[])Iterables.toArray(stats.entrySet(), Map.Entry.class);
+        Map.Entry<String, AtomicInteger>[] sortedStatsSet = Iterables.toArray(stats.entrySet(), Map.Entry.class);
 
         // Sort the array by the total profit for each entry
         Arrays.sort(sortedStatsSet, entryOrdering);

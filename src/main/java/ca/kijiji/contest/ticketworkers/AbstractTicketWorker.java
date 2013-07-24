@@ -67,7 +67,7 @@ public abstract class AbstractTicketWorker extends Thread {
                     Thread.yield();
                 }
 
-                // It's the last message, rebroadcast to all the other consumers so they shut down as well.
+                // If it's the last message, rebroadcast to all the other consumers so they shut down as well.
                 if(message == END_MSG) {
                     _mMessageQueue.put(END_MSG);
                     break;
