@@ -133,6 +133,7 @@ public class ParkingTicketsStats {
     protected static SortedMap<String, Integer> _finalizeStatsMap(Map<String, AtomicInteger> stats, int multiplier) {
 
         // Order by profit, descending
+        // This isn't as easy as it would normally be as I've used AtomicIntegers instead of Integers
         Ordering<Map.Entry<String, AtomicInteger>> entryOrdering = Ordering.natural()
                 .onResultOf(new Function<Map.Entry<String, AtomicInteger>, Integer>() {
                     public Integer apply(Map.Entry<String, AtomicInteger> entry) {
@@ -156,6 +157,9 @@ public class ParkingTicketsStats {
         }
 
         // Put the results into an immutable map ordered by value
+        // It's now my belief that this *does* conform to the interface of SortedMap as it in no way
+        // guarantees natural sort order or even that the sort order be based on a *direct* property
+        // of the key.
         ImmutableSortedMap.Builder<String, Integer> builder =
                 new ImmutableSortedMap.Builder<>(Ordering.explicit(sortedKeyOrder));
 
