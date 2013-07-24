@@ -56,7 +56,7 @@ public class ParkingTicketsStats {
 			int n = 7;
 			Thread[] threads = new Thread[n];
 			for (int k = 0; k < n; k++) {
-				threads[k] = new Thread(group, runnable, Integer.toString(k), 16 * 1024);
+				threads[k] = new Thread(group, runnable, Integer.toString(k), 1024);
 			}
 
     		data = new byte[available];
@@ -128,10 +128,10 @@ public class ParkingTicketsStats {
 				return o2.compareTo(o1);
 			}});
 
-    	final int B = SIZE / 3;
-    	final int C = B + B + 1;
+    	final int B = SIZE / 2;
+//    	final int C = B + B + 1;
 
-    	Thread t0 = new Thread() {
+    	Thread t0 = new Thread(null, null, "g0", 1024) {
     		public void run() {
     	    	for (int i = 0; i < B; i++) {
     	    		int v = vals.get(i);
@@ -145,9 +145,9 @@ public class ParkingTicketsStats {
     	};
     	t0.start();
 
-    	Thread t1 = new Thread() {
+    	Thread t1 = new Thread(null, null, "g1", 1024) {
     		public void run() {
-    	    	for (int i = B; i < C; i++) {
+    	    	for (int i = B; i < SIZE; i++) {
     	    		int v = vals.get(i);
     	    		if (v != 0) {
     	    			synchronized (sorted) {
@@ -159,23 +159,9 @@ public class ParkingTicketsStats {
     	};
     	t1.start();
 
-    	Thread t2 = new Thread() {
-    		public void run() {
-    	    	for (int i = C; i < SIZE; i++) {
-    	    		int v = vals.get(i);
-    	    		if (v != 0) {
-    	    			synchronized (sorted) {
-    		    			sorted.put(keys.get(i), v);
-    	    			}
-    	    		}
-    	    	}
-    		}
-    	};
-    	t2.start();
-
     	try { t0.join(); } catch (InterruptedException e) {}
     	try { t1.join(); } catch (InterruptedException e) {}
-    	try { t2.join(); } catch (InterruptedException e) {}
+//    	try { t2.join(); } catch (InterruptedException e) {}
 
     	printInterval("Populated TreeSet");
 
