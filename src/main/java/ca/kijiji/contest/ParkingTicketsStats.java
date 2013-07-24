@@ -3,6 +3,7 @@ package ca.kijiji.contest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.SortedMap;
@@ -45,14 +46,14 @@ public class ParkingTicketsStats {
 */
     	try {
 			available = parkingTicketsStream.available();
-    		println("Bytes available: "+ available);
+    		println(System.currentTimeMillis(), "Bytes available: "+ available);
 
 			ThreadGroup group = new ThreadGroup("workers");
 			Runnable runnable = new Runnable() {
 				public void run() {
 					worker();
 				}};
-			int n = 5;
+			int n = 7;
 			Thread[] threads = new Thread[n];
 			for (int k = 0; k < n; k++) {
 				threads[k] = new Thread(group, runnable, Integer.toString(k), 16 * 1024);
@@ -69,7 +70,7 @@ public class ParkingTicketsStats {
     		int a = 0;
     		int i = 0;
     		int j = 0;
-    		for (int c = 16 * 1024 * 1024; (c = parkingTicketsStream.read(data, a, c)) > 0; ) {
+    		for (int c = 32 * 1024 * 1024; (c = parkingTicketsStream.read(data, a, c)) > 0; ) {
     			a += c;
     			workItems.incrementAndGet();
     			i = j;
@@ -120,19 +121,61 @@ public class ParkingTicketsStats {
 
 //    	println("Size: "+ streets.size());
 
-    	SortedMap<String, Integer> sorted = new TreeMap<String, Integer>(new Comparator<String>() {
+    	final SortedMap<String, Integer> sorted = new TreeMap<String, Integer>(new Comparator<String>() {
 			public int compare(String o1, String o2) {
 				int c = get(o2) - get(o1);
 				if (c != 0) return c;
 				return o2.compareTo(o1);
 			}});
 
-    	for (int i = 0; i < SIZE; i++) {
-    		int v = vals.get(i);
-    		if (v != 0) {
-    			sorted.put(keys.get(i), v);
+    	final int B = SIZE / 3;
+    	final int C = B + B + 1;
+
+    	Thread t0 = new Thread() {
+    		public void run() {
+    	    	for (int i = 0; i < B; i++) {
+    	    		int v = vals.get(i);
+    	    		if (v != 0) {
+    	    			synchronized (sorted) {
+    		    			sorted.put(keys.get(i), v);
+    	    			}
+    	    		}
+    	    	}
     		}
-    	}
+    	};
+    	t0.start();
+
+    	Thread t1 = new Thread() {
+    		public void run() {
+    	    	for (int i = B; i < C; i++) {
+    	    		int v = vals.get(i);
+    	    		if (v != 0) {
+    	    			synchronized (sorted) {
+    		    			sorted.put(keys.get(i), v);
+    	    			}
+    	    		}
+    	    	}
+    		}
+    	};
+    	t1.start();
+
+    	Thread t2 = new Thread() {
+    		public void run() {
+    	    	for (int i = C; i < SIZE; i++) {
+    	    		int v = vals.get(i);
+    	    		if (v != 0) {
+    	    			synchronized (sorted) {
+    		    			sorted.put(keys.get(i), v);
+    	    			}
+    	    		}
+    	    	}
+    		}
+    	};
+    	t2.start();
+
+    	try { t0.join(); } catch (InterruptedException e) {}
+    	try { t1.join(); } catch (InterruptedException e) {}
+    	try { t2.join(); } catch (InterruptedException e) {}
 
     	printInterval("Populated TreeSet");
 
@@ -150,28 +193,43 @@ public class ParkingTicketsStats {
 			// local access faster than volatile fields
 			byte[] data = ParkingTicketsStats.data;
 
+			final ArrayList<String> parts = new ArrayList<>();
+
 			int work = 0;
 			do {
-				Long ij = byteArrayQueue.poll(30, TimeUnit.MILLISECONDS);
+				Long ij = byteArrayQueue.poll(5, TimeUnit.MILLISECONDS);
 				if (ij != null) {
 					int i = (int) (ij >>> 32);
 					int j = (int) (long) ij;
 				//	println("Thread ["+ threadName +"] processing block("+ i +", "+ j +")");
 
 					// process block
-					while (i < j) {
-						int m = i;
-						while (data[m++] != '\n' && m < j) {}
-						String line = new String(data, i, m - i);
-						i = m;
+					for (int m; i < j; i = m) {
+						// process a line
+						m = i;
+						while (m < j && data[m++] != (byte)'\n') {}
 
-			    		String[] parts = line.split(",");
+						parts.clear();
+						int k;
+						int c = 0;
+						do {
+							k = i;
+							while (k < m && data[k] != ',' && data[k] != '\n') { k++; }
+							if (c == 4 || c == 7) {
+								parts.add(new String(data, i, k - i));
+							} else {
+								parts.add(null);
+							}
+							c++;
+							i = k + 1;
+						} while (i < m);
+
 			    		try {
 	//			    		String tag_number_masked = parts[0];
 	//			    		String date_of_infraction = parts[1];
 	//			    		String infraction_code = parts[2];
 	//			    		String infraction_description = parts[3];
-				    		String sfa = parts[4];
+				    		String sfa = parts.get(4);
 				    		Integer set_fine_amount = 0;
 				    		try {
 					    		set_fine_amount = Integer.parseInt(sfa);
@@ -181,7 +239,7 @@ public class ParkingTicketsStats {
 				    		}
 	//			    		String time_of_infraction = parts[5];
 	//			    		String location1 = parts[6];
-				    		String location2 = parts[7];
+				    		String location2 = parts.get(7);
 	//			    		String location3 = parts[8];
 	//			    		String location4 = parts[9];
 				    		nameMatcher.reset(location2);
@@ -213,7 +271,7 @@ public class ParkingTicketsStats {
 			    			}
 			    		}
 			    		catch (ArrayIndexOutOfBoundsException e) {
-			    			println(e.getClass().getSimpleName() +": "+ line);
+			    			println(e.getClass().getSimpleName() +": "+ parts);
 			    			e.printStackTrace();
 			    		}
 					}
@@ -224,7 +282,7 @@ public class ParkingTicketsStats {
 				}
 			//	println("Thread ["+ threadName +"] work remaining "+ work +" queued="+ byteArrayQueue.size());
 			} while (work > 0);
-			println("Thread ["+ threadName +"] ending normally");
+			println(System.currentTimeMillis(), "Thread ["+ threadName +"] ending normally");
 		}
 		catch (InterruptedException e) {
 			e.printStackTrace();
@@ -266,7 +324,7 @@ public class ParkingTicketsStats {
 
     public static void printInterval(String name) {
     	long time = System.currentTimeMillis();
-    	println(name +": "+ (time - lastTime) +" ms");
+    	println(time, name +": "+ (time - lastTime) +" ms");
     	lastTime = time;
     }
 
@@ -276,6 +334,10 @@ public class ParkingTicketsStats {
 
     public static void printProperty(String name) {
 		println(name +": "+ System.getProperty(name));
+    }
+
+    public static void println(long time, String line) {
+    	println(time%10000 +" "+ line);
     }
 
     public static void println(String line) {
