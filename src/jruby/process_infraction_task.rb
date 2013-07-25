@@ -13,7 +13,11 @@ class ProcessInfractionTask
 
    def run
       begin
-         csv_data = CSV.parse_line(@line)
+         # csv_data = CSV.parse_line(@line)
+
+         # TIL - Ruby's CSV library is powerful but SLOW, this is a massive cheat
+         # but results in a 75% efficiency boost =/
+         csv_data = @line.split(/,/)
 
          infraction = Infraction.new_from_csv(csv_data)
          
