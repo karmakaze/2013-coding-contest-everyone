@@ -14,8 +14,8 @@ import org.apache.commons.lang.StringUtils;
  */
 class StreetNameResolver {
 
-    // Regex to separate the street number from the street.
-    // There need not be a street number, but it must be a combination of digits, punctuation and lowercase letters.
+    // Regex to separate the street number(s) from the street.
+    // There need not be a street number, but it must be a combination of digits, certain punctuation and lowercase letters,
     // optionally followed by a single uppercase letter (ex. "123/345", "12451&2412", "2412C", "33-44", "235-a", "22, 77b")
     // Also handles junk street numbers (like "222-", "-33", "!33", "1o2", "l22"). OCR must have been used for some of the
     // data entry since o's and l's are mixed with 0s and 1s. We consider lower-case letters to be part of the street number
@@ -63,14 +63,14 @@ class StreetNameResolver {
     }
 
     /**
-     * Get a street name from an address
-     * @param address the address to parse a street name from (ex: "123 FAKE ST W")
+     * Get a street name from a trim()ed address
+     * @param address the trim()ed address to parse a street name from (ex: "123 FAKE ST W")
      * @return a street name (ex: "FAKE") or null if a street name couldn't be parsed out
      */
     public String addressToStreetName(String address) {
 
         // Try to remove the street number from the front so we're more likely to get a cache hit
-        String streetCacheKey = _getCacheableAddress(address);
+        String streetCacheKey = _getAddressCacheKey(address);
 
         // We have a valid cache key, check if we have a cached name
         String streetName = _mStreetCache.get(streetCacheKey);
@@ -113,15 +113,20 @@ class StreetNameResolver {
     }
 
     /**
-     * Get a cacheable version of this address for street name lookups by lopping off the
-     * Street number using simple operations (if we can.)
-     * Results in a 17% speed increase over always running the full street name parser.
+     * Get a cacheable version of this address for street name lookups by trying to
+     * lop off the street number using simple operations.
+     * Results in at least a 17% speed increase over always running the full street name parser.
      *
      * This optimizes for the common case of NUMBER? STREET DESIGNATION? DIRECTION? with no garbage.
+     * This allows us to do expensive operations for the sake of accuracy in the full parser without
+     * taking too much of a performance hit (only around 20,000 addresses miss the cache on average)
      * We also prefer a cache miss to a false cache hit, for example:
      * "1B YONGE ST" won't be modified and will likely result in a cache miss to properly handle "12TH ST"
+     *
+     * @param address a trimmed street address
+     * @return a suitable cache key for this address.
      */
-    private static String _getCacheableAddress(String address) {
+    private static String _getAddressCacheKey(String address) {
 
         // charAt() probably doesn't work right with surrogate pairs.
         // but neither do our character checks
@@ -179,7 +184,7 @@ class StreetNameResolver {
             }
         }
 
-        // Go backwards through the tokens and skip all the ones that aren't likely part of the actual name.
+        // Go backwards through the tokens and skip those that aren't likely part of the actual name.
         int lastNameTokenIdx = 0;
 
         for(int i = lastTokenIdx; i >= 0; --i) {
