@@ -3,7 +3,6 @@ package ca.kijiji.contest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.SortedMap;
@@ -21,53 +20,62 @@ import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.dsl.Disruptor;
 
-public class ParkingTicketsStats extends Thread {
+/**
+ * Pipeline decomposition:
+ * - InputStream
+ * - byte[] blocks
+ * - lines
+ * - fields (e.g. fine, location)
+ * - parse fine, location
+ * - hash location
+ *
+ */
+public class ParkingTicketsStats {
 
 	// 24-bit indices (16M possible entries)
 	static final int BITS = 24;
 	static final int UNUSED_BITS = 32 - BITS;
 	static final int SIZE = 1 << BITS;
 	static final int MASK = SIZE - 1;
+
 	static final AtomicReferenceArray<String> keys = new AtomicReferenceArray<String>(SIZE);
 	static final AtomicIntegerArray vals = new AtomicIntegerArray(SIZE);
+
 	static volatile byte[] data;
 
 	static final String name = "([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)";
 	static final Pattern namePattern = Pattern.compile(name);
-
-	static volatile int available;
-
-	static final int nThreads = 10;
-	@SuppressWarnings("unchecked")
-	static final ArrayBlockingQueue<Long>[] byteArrayQueues = new ArrayBlockingQueue[nThreads];
-
-	final ArrayBlockingQueue<Long> byteArrayReadQueue;
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(final InputStream parkingTicketsStream) {
     	printInterval("Pre-entry initialization");
     	//printProperty("os.arch");
 
     	try {
-			available = parkingTicketsStream.available();
+			final int available = parkingTicketsStream.available();
     		println(System.currentTimeMillis(), "Bytes available: "+ available);
 
 	        final ExecutorService exec = Executors.newCachedThreadPool();
 
-	        // Preallocate RingBuffer with 1024 ValueEvents
-	        final Disruptor<ValueEvent> disruptor = new Disruptor<ValueEvent>(ValueEvent.EVENT_FACTORY, 1024, exec);
+	        final int nDisruptors = 8;
+	        final Disruptor<StartEndEvent> blockDisruptors[] = new Disruptor[nDisruptors];
+	        final BlockEventHandler blockHandlers[] = new BlockEventHandler[nDisruptors];
+	        final RingBuffer<StartEndEvent> blockRingBuffers[] = new RingBuffer[nDisruptors];
 
-	        // Build dependency graph
-	        final ValueEventHandler handler = new ValueEventHandler();
-	        disruptor.handleEventsWith(handler);
-
-	        final RingBuffer<ValueEvent> ringBuffer = disruptor.start();
+	        for (int d = 0; d < nDisruptors; d++) {
+		        blockDisruptors[d]= new Disruptor<StartEndEvent>(StartEndEvent.EVENT_FACTORY, 128, exec);
+		        blockHandlers[d] = new BlockEventHandler();
+		        blockDisruptors[d].handleEventsWith(blockHandlers[d]);
+		        blockRingBuffers[d] = blockDisruptors[d].start();
+	        }
 
     		data = new byte[available];
+    		final byte[] data = ParkingTicketsStats.data;
 
     		int a = 0;
     		int i = 0;
     		int j = 0;
-    		for (int c = 32 * 1024 * 1024; (c = parkingTicketsStream.read(data, a, c)) > 0; ) {
+    		int disruptor = 0;
+    		for (int c = 1 * 1024 * 1024; (c = parkingTicketsStream.read(data, a, c)) > 0; ) {
     			a += c;
     			i = j;
     			j = a;
@@ -83,21 +91,37 @@ public class ParkingTicketsStats extends Thread {
     				while (data[i++] != '\n') {};
     			}
 
-    			final long ij = (long)i << 32 | (long)j & 0x0ffffffffL;
-	            // Two phase commit. Grab one of the slots
-	            final long seq = ringBuffer.next();
-	            final ValueEvent valueEvent = ringBuffer.get(seq);
-	            valueEvent.setValue(ij);
-	            ringBuffer.publish(seq);
+    			int start;
+    			int end = i;
+    			for (int k = 1; k <= 64; k++) {
+    				start = end;
+    				if (k == 64) {
+    					end = j;
+    				}
+    				else {
+    					end = i + (j - i) * k / 64;
+        				while (data[--end] != '\n') {}
+    				}
+		            // Two phase commit. Grab one of the slots
+		            final long seq = blockRingBuffers[disruptor].next();
+		            final StartEndEvent valueEvent = blockRingBuffers[disruptor].get(seq);
+		            valueEvent.start = start;
+		            valueEvent.end = end;
+		            blockRingBuffers[disruptor].publish(seq);
+    			}
 
     			if (available - a < c) {
     				c = available - a;
     			}
+
+    			disruptor = (disruptor + 1) % nDisruptors;
     		}
 
 	    	printInterval("Local initialization: read remaining of "+ a +" total bytes");
 
-	        disruptor.shutdown();
+	        for (int d = 0; d < nDisruptors; d++) {
+		        blockDisruptors[d].shutdown();
+	        }
 	        exec.shutdown();
 
 	    	printInterval("All worker threads completed");
@@ -105,8 +129,6 @@ public class ParkingTicketsStats extends Thread {
     	catch (final IOException e) {
 			e.printStackTrace();
 		}
-
-//    	println("Size: "+ streets.size());
 
     	final SortedMap<String, Integer> sorted = new TreeMap<String, Integer>(new Comparator<String>() {
 			public int compare(final String o1, final String o2) {
@@ -152,14 +174,6 @@ public class ParkingTicketsStats extends Thread {
     	printInterval("Populated TreeSet");
 
         return sorted;
-    }
-
-    ParkingTicketsStats(final int id, final ArrayBlockingQueue<Long> byteArrayReadQueue) {
-    	this.byteArrayReadQueue = byteArrayReadQueue;
-    }
-
-    public void run() {
-    	worker(byteArrayReadQueue);
     }
 
     /**
@@ -223,23 +237,16 @@ public class ParkingTicketsStats extends Thread {
     	System.out.println(line);
     }
 
-    public final static class ValueEventHandler implements EventHandler<ValueEvent> {
-        public void onEvent(final ValueEvent event, final long sequence, final boolean endOfBatch) throws Exception {
-            System.out.println("Sequence: " + sequence);
-            System.out.println("ValueEvent: " + event.getValue());
-		//	String threadName = Thread.currentThread().getName();
-			final Matcher nameMatcher = namePattern.matcher("");
+    public final static class BlockEventHandler implements EventHandler<StartEndEvent> {
+		private final Matcher nameMatcher = namePattern.matcher("");
+
+        public void onEvent(final StartEndEvent event, final long sequence, final boolean endOfBatch) throws Exception {
 
 			// local access faster than volatile fields
 			final byte[] data = ParkingTicketsStats.data;
 
-			final ArrayList<String> parts = new ArrayList<>();
-
-			final long ij = event.value;
-
-			int i = (int) (ij >>> 32);
-			final int j = (int) (long) ij;
-		//	println("Thread ["+ threadName +"] processing block("+ i +", "+ j +")");
+			int i = event.start;
+			final int j = event.end;
 
 			// process block
 			for (int m; i < j; i = m) {
@@ -247,55 +254,45 @@ public class ParkingTicketsStats extends Thread {
 				m = i;
 				while (m < j && data[m++] != (byte)'\n') {}
 
-				parts.clear();
+				// split out fields 4 (set_fine_amount) and 7 (location2)
+	    		String set_fine_amount = "0";
+	    		String location2 = "";
+
 				int k;
 				int c = 0;
 				do {
 					k = i;
 					while (k < m && data[k] != ',' && data[k] != '\n') { k++; }
-					if (c == 4 || c == 7) {
-						parts.add(new String(data, i, k - i));
-					} else {
-						parts.add(null);
+					if (c == 4) {
+						set_fine_amount = new String(data, i, k - i);
+					}
+					else if (c == 7) {
+			    		location2 = new String(data, i, k - i);
 					}
 					c++;
 					i = k + 1;
 				} while (i < m);
 
+    			// parse fine
+	    		int amount = 0;
 	    		try {
-					//String tag_number_masked = parts[0];
-					//String date_of_infraction = parts[1];
-					//String infraction_code = parts[2];
-					//String infraction_description = parts[3];
-		    		final String sfa = parts.get(4);
-		    		Integer set_fine_amount = 0;
-		    		try {
-			    		set_fine_amount = Integer.parseInt(sfa);
-		    		}
-		    		catch (final NumberFormatException e) {
-		    			System.out.print(e.getClass().getSimpleName() +": "+ sfa);
-		    		}
-					//String time_of_infraction = parts[5];
-					//String location1 = parts[6];
-		    		final String location2 = parts.get(7);
-					//String location3 = parts[8];
-					//String location4 = parts[9];
-		    		//String province = parts[10];
-		    		nameMatcher.reset(location2);
-		    		if (nameMatcher.find()) {
-		    			final String l = nameMatcher.group();
-		    			add(l, set_fine_amount);
-	    			}
-	    			else {
-	    				if (location2.indexOf("KING") >= 0 && location2.indexOf("PARKING") == -1) {
-		    				println(""+ location2);
-	    				}
-	    			}
+		    		amount = Integer.parseInt(set_fine_amount);
 	    		}
-	    		catch (final ArrayIndexOutOfBoundsException e) {
-	    			println(e.getClass().getSimpleName() +": "+ parts);
-	    			e.printStackTrace();
+	    		catch (final NumberFormatException e) {
+	    			System.out.print(e.getClass().getSimpleName() +": "+ set_fine_amount);
 	    		}
+
+	    		// parse location2
+	    		nameMatcher.reset(location2);
+	    		if (nameMatcher.find()) {
+	    			add(nameMatcher.group(), amount);
+				}
+				else {
+					// name could not be parsed, print out select subset of these errors
+					if (location2.indexOf("KING") >= 0 && location2.indexOf("PARKING") == -1) {
+	    				println(""+ location2);
+					}
+				}
 			}
         }
     }
@@ -304,20 +301,13 @@ public class ParkingTicketsStats extends Thread {
      * WARNING: This is a mutable object which will be recycled by the RingBuffer.
      * You must take a copy of data it holds before the framework recycles it.
      */
-    public final static class ValueEvent {
-        private long value;
+    public final static class StartEndEvent {
+        int start;
+        int end;
 
-        public final long getValue() {
-            return value;
-        }
-
-        public final void setValue(final long value) {
-            this.value = value;
-        }
-
-        public final static EventFactory<ValueEvent> EVENT_FACTORY = new EventFactory<ValueEvent>() {
-            public ValueEvent newInstance() {
-                return new ValueEvent();
+        public final static EventFactory<StartEndEvent> EVENT_FACTORY = new EventFactory<StartEndEvent>() {
+            public StartEndEvent newInstance() {
+                return new StartEndEvent();
             }
         };
     }
