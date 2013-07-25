@@ -1,0 +1,5 @@
+Baseline:
+   real	5m59.298s
+   user	6m9.300s
+   sys	0m2.232s
+

@@ -1,28 +1,22 @@
 # add the source directory to the load path
 $:.unshift File.expand_path(File.dirname(__FILE__))
 
-require 'each_runner'
+require 'threaded_runner'
+require 'threadsafe_group_counter'
+require 'summarize_fines_by_street_name'
 
-$counts = Hash.new(0)
+$counter = ThreadsafeGroupCounter.new
 
-runner = EachRunner.new(STDIN)
-
-runner.each do |infr, row|
-   if infr.location.address
-      $counts[infr.location.address.street_name] += infr.fine
-   end
-end
-
-# runner.progress { STDERR.print "." }
+runner = ThreadedRunner.new(STDIN, SummarizeFinesByStreetName.new($counter), pool_size: 20, timeout: 1200)
 
 runner.done do |row|
    STDERR.puts "\ndone (row=#{row})"
+
+   open("results.txt", "w+") do |f|
+      $counter.sort_by(&:last).reverse.each {|k, v| f.puts "#{k}: #{v}" }
+   end
 end
 
 runner.run!
 
-$counts.each do |street, value|
-   result.put(street, value.to_java(Java::int))
-end
-
-open("out.txt", "w+")  {|f| f.puts result.inspect }
+$counter.map

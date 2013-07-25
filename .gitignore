@@ -10,5 +10,8 @@ target/
 # Big test files
 src/test/resources/Parking_Tags_Data_2012.csv
 src/test/resources/parking_tickets_data_2012.zip
+
+# Other stuff
 Parking_Tags_Data_2012.csv
 .ruby-gemset
+short-list.csv

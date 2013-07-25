@@ -3,50 +3,22 @@
 # add the source directory to the load path
 $:.unshift File.expand_path("../src/jruby", File.dirname(__FILE__))
 
-require 'each_runner'
-
-$counts = Hash.new(0)
-$errors = Hash.new {|h,k| h[k] = [] }
+require 'threaded_runner'
+require 'threadsafe_group_counter'
+require 'summarize_fines_by_street_name'
 
 io = File.open(ARGV.first, 'r')
 
-runner = EachRunner.new(io)
+$counter = ThreadsafeGroupCounter.new
 
-runner.each do |infr, row|
-   if infr.location.address
-      $counts[infr.location.address.street_name] += infr.fine
-   else
-      $errors[:missing_street] << "(row=#{row}) #{infr.number} is missing the street name"
-   end
-end
-
-# runner.each do |infr, row|
-#    if infr.location.address
-#       $counts[infr.location.address.street_name] += 1
-#    else
-#       $errors[:missing_street] << "(row=#{row}) #{infr.number} is missing the street name"
-#    end
-# end
-
-# runner.each do |infr, row|
-#    if infr.location.address
-#       STDOUT.puts infr.location.address.tokens.join(" ") if infr.location.address.tokens.include?(ARGV.last)
-#    else
-#       $errors[:missing_street] << "(row=#{row}) #{infr.number} is missing the street name"
-#    end
-# end
-
-runner.progress { STDERR.print "." }
+runner = ThreadedRunner.new(io, SummarizeFinesByStreetName.new($counter), pool_size: 20, timeout: 1200)
 
 runner.done do |row|
    STDERR.puts "\ndone (row=#{row})"
 
-   $counts.sort_by(&:last).reverse.each do |k, v|
-      puts "#{k}: #{v}"
+   open("results.txt", "w+") do |f|
+      $counter.sort_by(&:last).reverse.each {|k, v| f.puts "#{k}: #{v}" }
    end
-
-   require 'pp'
-   PP.pp($errors, STDERR)
 end
 
 runner.run!

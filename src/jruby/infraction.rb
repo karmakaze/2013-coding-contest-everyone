@@ -33,7 +33,7 @@ class Infraction
    end
 
    def fine
-      data.fine.to_f
+      data.fine.to_i
    end
 
    def csv_data=(data)

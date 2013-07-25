@@ -25,7 +25,7 @@ describe Infraction do
    end
 
    it 'parses the fine' do
-      sample.fine.must_equal 60.0
+      sample.fine.must_equal 60
    end
 
    it 'parses the province' do
