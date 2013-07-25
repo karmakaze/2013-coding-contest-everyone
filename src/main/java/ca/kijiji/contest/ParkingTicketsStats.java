@@ -10,13 +10,12 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class ParkingTicketsStats {
+public class ParkingTicketsStats extends Thread {
 
 	// 24-bit indices (16M possible entries)
 	static final int BITS = 24;
@@ -32,8 +31,11 @@ public class ParkingTicketsStats {
 
 	static volatile int available;
 
-	static final ArrayBlockingQueue<Long> byteArrayQueue = new ArrayBlockingQueue<Long>(1024, true);
-	static final AtomicInteger workItems = new AtomicInteger();
+	static final int nThreads = 10;
+	@SuppressWarnings("unchecked")
+	static final ArrayBlockingQueue<Long>[] byteArrayQueues = new ArrayBlockingQueue[nThreads];
+
+	final ArrayBlockingQueue<Long> byteArrayReadQueue;
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
     	printInterval("Pre-entry initialization");
@@ -48,20 +50,13 @@ public class ParkingTicketsStats {
 			available = parkingTicketsStream.available();
     		println(System.currentTimeMillis(), "Bytes available: "+ available);
 
-			ThreadGroup group = new ThreadGroup("workers");
-			Runnable runnable = new Runnable() {
-				public void run() {
-					worker();
-				}};
-			int n = 10;
-			Thread[] threads = new Thread[n];
-			for (int k = 0; k < n; k++) {
-				threads[k] = new Thread(group, runnable, Integer.toString(k), 1024);
+			ParkingTicketsStats[] threads = new ParkingTicketsStats[nThreads];
+			for (int k = 0; k < nThreads; k++) {
+				byteArrayQueues[k] = new ArrayBlockingQueue<Long>(1024, true);
+				threads[k] = new ParkingTicketsStats(k, byteArrayQueues[k]);
 			}
 
     		data = new byte[available];
-
-    		workItems.incrementAndGet(); // 1 for first producer task
 
     		for (Thread t : threads) {
 	    		t.start();
@@ -70,9 +65,9 @@ public class ParkingTicketsStats {
     		int a = 0;
     		int i = 0;
     		int j = 0;
+    		int k = 0;
     		for (int c = 32 * 1024 * 1024; (c = parkingTicketsStream.read(data, a, c)) > 0; ) {
     			a += c;
-    			workItems.incrementAndGet();
     			i = j;
     			j = a;
     			if (a < available) {
@@ -89,7 +84,8 @@ public class ParkingTicketsStats {
 
     			long ij = (long)i << 32 | (long)j & 0x0ffffffffL;
     			try {
-					while (!byteArrayQueue.offer(ij, 1, TimeUnit.SECONDS)) {}
+					// while (!byteArrayQueues[k].offer(ij, 1, TimeUnit.SECONDS)) {}
+					byteArrayQueues[k].put(ij);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
@@ -97,9 +93,17 @@ public class ParkingTicketsStats {
     			if (available - a < c) {
     				c = available - a;
     			}
+
+    			k++; if (k > nThreads) k = 0;
     		}
 
-    		workItems.decrementAndGet();
+    		for (k = 0; k < nThreads; k++) {
+    			try {
+					byteArrayQueues[k].put(0L);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+    		}
 
 	    	printInterval("Local initialization: read remaining of "+ a +" total bytes");
 
@@ -168,10 +172,18 @@ public class ParkingTicketsStats {
         return sorted;
     }
 
+    ParkingTicketsStats(int id, ArrayBlockingQueue<Long> byteArrayReadQueue) {
+    	this.byteArrayReadQueue = byteArrayReadQueue;
+    }
+
+    public void run() {
+    	worker(byteArrayReadQueue);
+    }
+
     /**
      * worker parallel worker takes blocks of bytes read and processes them
      */
-    static final void worker() {
+    static final void worker(final ArrayBlockingQueue<Long> byteArrayReadQueue) {
 		try {
 		//	String threadName = Thread.currentThread().getName();
 			Matcher nameMatcher = namePattern.matcher("");
@@ -181,93 +193,84 @@ public class ParkingTicketsStats {
 
 			final ArrayList<String> parts = new ArrayList<>();
 
-			int work = 0;
-			do {
-				Long ij = byteArrayQueue.poll(5, TimeUnit.MILLISECONDS);
-				if (ij != null) {
-					int i = (int) (ij >>> 32);
-					int j = (int) (long) ij;
-				//	println("Thread ["+ threadName +"] processing block("+ i +", "+ j +")");
+			for (Long ij; (ij = byteArrayReadQueue.poll(Long.MAX_VALUE, TimeUnit.MILLISECONDS)) != 0L; ) {
+				int i = (int) (ij >>> 32);
+				int j = (int) (long) ij;
+			//	println("Thread ["+ threadName +"] processing block("+ i +", "+ j +")");
 
-					// process block
-					for (int m; i < j; i = m) {
-						// process a line
-						m = i;
-						while (m < j && data[m++] != (byte)'\n') {}
+				// process block
+				for (int m; i < j; i = m) {
+					// process a line
+					m = i;
+					while (m < j && data[m++] != (byte)'\n') {}
 
-						parts.clear();
-						int k;
-						int c = 0;
-						do {
-							k = i;
-							while (k < m && data[k] != ',' && data[k] != '\n') { k++; }
-							if (c == 4 || c == 7) {
-								parts.add(new String(data, i, k - i));
-							} else {
-								parts.add(null);
-							}
-							c++;
-							i = k + 1;
-						} while (i < m);
+					parts.clear();
+					int k;
+					int c = 0;
+					do {
+						k = i;
+						while (k < m && data[k] != ',' && data[k] != '\n') { k++; }
+						if (c == 4 || c == 7) {
+							parts.add(new String(data, i, k - i));
+						} else {
+							parts.add(null);
+						}
+						c++;
+						i = k + 1;
+					} while (i < m);
 
+		    		try {
+//			    		String tag_number_masked = parts[0];
+//			    		String date_of_infraction = parts[1];
+//			    		String infraction_code = parts[2];
+//			    		String infraction_description = parts[3];
+			    		String sfa = parts.get(4);
+			    		Integer set_fine_amount = 0;
 			    		try {
-	//			    		String tag_number_masked = parts[0];
-	//			    		String date_of_infraction = parts[1];
-	//			    		String infraction_code = parts[2];
-	//			    		String infraction_description = parts[3];
-				    		String sfa = parts.get(4);
-				    		Integer set_fine_amount = 0;
-				    		try {
-					    		set_fine_amount = Integer.parseInt(sfa);
-				    		}
-				    		catch (NumberFormatException e) {
-				    			System.out.print(e.getClass().getSimpleName() +": "+ sfa);
-				    		}
-	//			    		String time_of_infraction = parts[5];
-	//			    		String location1 = parts[6];
-				    		String location2 = parts.get(7);
-	//			    		String location3 = parts[8];
-	//			    		String location4 = parts[9];
-				    		nameMatcher.reset(location2);
-				    		if (nameMatcher.find()) {
-				    			String l = nameMatcher.group();
-	//		    			streetMatcher.reset(location2);
-	//		    			if (streetMatcher.find()) {
-	//		    				String l = streetMatcher.group(2);
-			    			/*
-					    	//	l = l.replaceAll("[0-9]+", "");
-					    		l = l.replaceAll("[^A-Z]+ ", "");
-					    		l = l.replaceAll(" (N|NORTH|S|SOUTH|W|WEST|E|EAST)$", "");
-					    		l = l.replaceAll(" (AV|AVE|AVENUE|BLVD|CRES|COURT|CRT|DR|RD|ST|STR|STREET|WAY)$", "");
-					    	//	l = l.replaceAll("^(A|M) ", "");
-					    		l = l.replaceAll("(^| )(PARKING) .*$", "");
-					    		l = l.trim();
-				    		*/
-	//				    		String province = parts[10];
-				    			add(l, set_fine_amount);
-	
-	//			    			if (!l.equals("KING") && (location2.indexOf(" KING ") >= 0 || location2.endsWith(" KING"))) {
-	//			    				println(l +" <- "+ location2);
-	//			    			}
-			    			}
-			    			else {
-			    				if (location2.indexOf("KING") >= 0 && location2.indexOf("PARKING") == -1) {
-				    				println(""+ location2);
-			    				}
-			    			}
+				    		set_fine_amount = Integer.parseInt(sfa);
 			    		}
-			    		catch (ArrayIndexOutOfBoundsException e) {
-			    			println(e.getClass().getSimpleName() +": "+ parts);
-			    			e.printStackTrace();
+			    		catch (NumberFormatException e) {
+			    			System.out.print(e.getClass().getSimpleName() +": "+ sfa);
 			    		}
-					}
-					work = workItems.decrementAndGet();
+//			    		String time_of_infraction = parts[5];
+//			    		String location1 = parts[6];
+			    		String location2 = parts.get(7);
+//			    		String location3 = parts[8];
+//			    		String location4 = parts[9];
+			    		nameMatcher.reset(location2);
+			    		if (nameMatcher.find()) {
+			    			String l = nameMatcher.group();
+//		    			streetMatcher.reset(location2);
+//		    			if (streetMatcher.find()) {
+//		    				String l = streetMatcher.group(2);
+		    			/*
+				    	//	l = l.replaceAll("[0-9]+", "");
+				    		l = l.replaceAll("[^A-Z]+ ", "");
+				    		l = l.replaceAll(" (N|NORTH|S|SOUTH|W|WEST|E|EAST)$", "");
+				    		l = l.replaceAll(" (AV|AVE|AVENUE|BLVD|CRES|COURT|CRT|DR|RD|ST|STR|STREET|WAY)$", "");
+				    	//	l = l.replaceAll("^(A|M) ", "");
+				    		l = l.replaceAll("(^| )(PARKING) .*$", "");
+				    		l = l.trim();
+			    		*/
+//				    		String province = parts[10];
+			    			add(l, set_fine_amount);
+
+//			    			if (!l.equals("KING") && (location2.indexOf(" KING ") >= 0 || location2.endsWith(" KING"))) {
+//			    				println(l +" <- "+ location2);
+//			    			}
+		    			}
+		    			else {
+		    				if (location2.indexOf("KING") >= 0 && location2.indexOf("PARKING") == -1) {
+			    				println(""+ location2);
+		    				}
+		    			}
+		    		}
+		    		catch (ArrayIndexOutOfBoundsException e) {
+		    			println(e.getClass().getSimpleName() +": "+ parts);
+		    			e.printStackTrace();
+		    		}
 				}
-				else {
-					work = workItems.get();
-				}
-			//	println("Thread ["+ threadName +"] work remaining "+ work +" queued="+ byteArrayQueue.size());
-			} while (work > 0);
+			}
 
 		//	println(System.currentTimeMillis(), "Thread ["+ threadName +"] ending normally");
 		}
