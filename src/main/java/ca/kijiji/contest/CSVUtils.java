@@ -6,7 +6,7 @@ import org.supercsv.io.CsvListReader;
 import org.supercsv.prefs.CsvPreference;
 
 // Something to handle those 20 or so lines in the CSV with escaped columns
-public class CSVUtils {
+class CSVUtils {
 
     private CSVUtils() { }
 

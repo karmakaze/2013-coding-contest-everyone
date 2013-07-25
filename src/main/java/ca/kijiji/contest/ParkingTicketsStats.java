@@ -10,8 +10,6 @@ import com.google.common.base.Function;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.*;
 
-import ca.kijiji.contest.ticketworkers.*;
-
 // The input is pretty dirty (that nasty business wasn't a joke!) so you can expect things like "YONGE STRET",
 // "PENGARTH CROUT" and "BEVERLEY ST BLOCKING PRIVATE DRWY" that would normally be fixed with a manual once-over...
 // but let's pretend we have good data, These errors are small enough not to cause huge problems
@@ -130,7 +128,7 @@ public class ParkingTicketsStats {
      * @param multiplier multiplier to apply to the total for each street
      * @return A sorted and immutable map of profit stats
      */
-    protected static SortedMap<String, Integer> _finalizeStatsMap(Map<String, ? extends Number> stats, int multiplier) {
+    private static SortedMap<String, Integer> _finalizeStatsMap(Map<String, ? extends Number> stats, int multiplier) {
 
         // Order by profit, descending
         // This isn't as straightforward as it would normally be as I've used AtomicIntegers instead of Integers

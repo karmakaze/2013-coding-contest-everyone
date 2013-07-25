@@ -1,6 +1,7 @@
-package ca.kijiji.contest.ticketworkers;
+package ca.kijiji.contest;
 
 import ca.kijiji.contest.CSVUtils;
+import ca.kijiji.contest.StreetProfitTabulator;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.*;
 
@@ -11,7 +12,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public abstract class AbstractTicketWorker extends Thread {
+abstract class AbstractTicketWorker extends Thread {
 
     private static final Logger LOG = LoggerFactory.getLogger(StreetProfitTabulator.class);
 

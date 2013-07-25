@@ -3,8 +3,7 @@ package ca.kijiji.contest;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.regex.*;
 
 import com.google.common.collect.ImmutableSet;
 import org.apache.commons.lang.StringUtils;
@@ -13,11 +12,11 @@ import org.apache.commons.lang.StringUtils;
  * Resolves addresses to street names
  * Uses thread-safe caching internally.
  */
-public class StreetNameResolver {
+class StreetNameResolver {
 
     // Regex to separate the street number from the street.
     // There need not be a street number, but it must be a combination of digits, punctuation and lowercase letters.
-    // optionally followed by a single uppercase letter (ex. "123/345", "12451&2412", "2412J", "33-44", "235-a", "22, 77b")
+    // optionally followed by a single uppercase letter (ex. "123/345", "12451&2412", "2412C", "33-44", "235-a", "22, 77b")
     // Also handles junk street numbers (like "222-", "-33", "!33", "1o2", "l22"). OCR must have been used for some of the
     // data entry since o's and l's are mixed with 0s and 1s. We consider lower-case letters to be part of the street number
     // since that's the only place they show up, though one upper-case letter may appear on the *end* of a number (for
@@ -25,8 +24,8 @@ public class StreetNameResolver {
     private static final String STREET_NUM_REGEX = "(?<num>[\\p{N}\\p{Ll}\\-&/,\\. ]*\\p{Lu}?)";
 
     // Street names, designations and directions are all upper-case. Fails on streets with periods in the name proper
-    // in favor of discarding periods at the end of street designation abbreviations.
-    private static final String STREET_REGEX = "(?<street>[\\p{N}\\p{L} '-]*)\\.?";
+    // in favor of discarding periods at the end of street designation abbreviations (as in "AVE.").
+    private static final String STREET_REGEX = "(?<street>[\\p{N}\\p{L} '\\-\\.]*)";
 
     // Ignore garbage at the beginning and end of the string and pull out the street numbers / names
     // Whoever released this data set as-is is a sadist.
@@ -54,7 +53,7 @@ public class StreetNameResolver {
 
     // Number of lookups that could be done via cache lookup.
     // If we had more tickets or did multiple passes this would required a LongAdder.
-    AtomicInteger _mCacheHits = new AtomicInteger(0);
+    private final AtomicInteger _mCacheHits = new AtomicInteger(0);
 
     // Map of cache-friendly addresses to their respective street names
     private final Map<String, String> _mStreetCache = new ConcurrentHashMap<>();
@@ -86,7 +85,7 @@ public class StreetNameResolver {
             if(addressMatcher.matches()) {
 
                 // Get just the street *name* from the street
-                streetName = _isolateStreetName(addressMatcher.group("street"));
+                streetName = _getStreetNameFromStreet(addressMatcher.group("street"));
 
                 // No tokens left in the street name, it's likely invalid.
                 if(streetName.isEmpty()) {
@@ -152,15 +151,38 @@ public class StreetNameResolver {
     /**
      * Get *just* the street name from a street
      * */
-    private String _isolateStreetName(String street) {
+    private String _getStreetNameFromStreet(String street) {
 
         // Split the street up into tokens
         String[] streetTokens = StringUtils.split(street, ' ');
 
+        // Index of the last token in the list
+        int lastTokenIdx = streetTokens.length - 1;
+
+        // Token is valid
+        if(lastTokenIdx >= 0) {
+            // Check if the last token has a period on the end, remove it if it does
+            // Handles designation abbreviations like "ST."
+            String lastToken = streetTokens[lastTokenIdx];
+            if(lastToken.endsWith(".")) {
+
+                // Cut off the period
+                lastToken = StringUtils.chop(lastToken);
+
+                if(lastToken.isEmpty()) {
+                    // The last token is now empty, ignore it.
+                    --lastTokenIdx;
+                } else {
+                    // Replace the old token with the fixed one
+                    streetTokens[lastTokenIdx] = lastToken;
+                }
+            }
+        }
+
         // Go backwards through the tokens and skip all the ones that aren't likely part of the actual name.
         int lastNameTokenIdx = 0;
 
-        for(int i = streetTokens.length - 1; i > -1; --i) {
+        for(int i = lastTokenIdx; i >= 0; --i) {
             String token = streetTokens[i];
 
             // Index of the last token in the street name proper

@@ -1,4 +1,4 @@
-package ca.kijiji.contest.ticketworkers;
+package ca.kijiji.contest;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -9,9 +9,7 @@ import com.google.common.primitives.Ints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ca.kijiji.contest.StreetNameResolver;
-
-public class StreetProfitTabulator extends AbstractTicketWorker {
+class StreetProfitTabulator extends AbstractTicketWorker {
 
     private static final Logger LOG = LoggerFactory.getLogger(StreetProfitTabulator.class);
 
@@ -45,7 +43,7 @@ public class StreetProfitTabulator extends AbstractTicketWorker {
         String streetName = _mStreetNameResolver.addressToStreetName(address);
 
         // We were able to parse a street name out of the address
-        if(streetName != null && !streetName.isEmpty()) {
+        if(streetName != null) {
             // Figure out how much the fine for this infraction was
             Integer fine = Ints.tryParse(getColumn(ticketCols, "set_fine_amount"));
 
