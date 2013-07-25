@@ -115,15 +115,15 @@ public class ParkingTicketsStats {
             LOG.warn(String.format("Encountered %d errors during processing", numErrs));
         }
 
-        LOG.info(String.format("%d cache hits for street name look-ups", streetNameResolver.getCacheHits()));
+        LOG.info(String.format("%d cache hits for street name lookups", streetNameResolver.getCacheHits()));
 
         // Return an immutable map of the stats sorted by value
         return _finalizeStatsMap(stats, numSkipTickets + 1);
     }
 
     /**
-     * Create a sorted and immutable copy of a map of total profit from parking tickets by street
-     * converts from the internal value format (AtomicInteger) to Integer at the same time.
+     * Create a sorted and immutable copy of a map of total profit from parking tickets by street.
+     * Converts from the internal value format (AtomicInteger) to Integer at the same time.
      * @param stats internal total profit map
      * @param multiplier multiplier to apply to the total for each street
      * @return A sorted and immutable map of profit stats

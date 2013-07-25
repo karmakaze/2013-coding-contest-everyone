@@ -1,7 +1,5 @@
 package ca.kijiji.contest;
 
-import ca.kijiji.contest.CSVUtils;
-import ca.kijiji.contest.StreetProfitTabulator;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.*;
 

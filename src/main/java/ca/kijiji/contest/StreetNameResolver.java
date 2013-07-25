@@ -51,8 +51,7 @@ class StreetNameResolver {
             "SQ", "SQUARE", "STREET", "T", "TER", "TERR", "TERRACE", "TR", "TRL", "TRAIL", "VISTA", "V", "WAY", "WY", "WOOD"
     );
 
-    // Number of lookups that could be done via cache lookup.
-    // If we had more tickets or did multiple passes this would required a LongAdder.
+    // Number of successful cache lookups.
     private final AtomicInteger _mCacheHits = new AtomicInteger(0);
 
     // Map of cache-friendly addresses to their respective street names
@@ -87,7 +86,7 @@ class StreetNameResolver {
                 // Get just the street *name* from the street
                 streetName = _getStreetNameFromStreet(addressMatcher.group("street"));
 
-                // No tokens left in the street name, it's likely invalid.
+                // No tokens matched in the street name, it's likely invalid.
                 if(streetName.isEmpty()) {
                     return null;
                 }
@@ -128,8 +127,8 @@ class StreetNameResolver {
      */
     private static String _getAddressCacheKey(String address) {
 
-        // charAt() probably doesn't work right with surrogate pairs.
-        // but neither do our character checks
+        // charAt() doesn't work right with surrogate pairs,
+        // but there aren't any hieroglyphics in the input, so...
         if(Character.isDigit(address.charAt(0))) {
 
             // Check where the first space is
