@@ -22,6 +22,8 @@ class ProcessInfractionTask
          infraction = Infraction.new_from_csv(csv_data)
          
          @task.each infraction, @row
+      rescue Infraction::ParseError => e
+         # do nothing
       rescue CSV::MalformedCSVError => e
          # do nothing
       end

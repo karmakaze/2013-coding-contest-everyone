@@ -7,7 +7,7 @@ require 'summarize_fines_by_street_name'
 
 $counter = ThreadsafeGroupCounter.new
 
-runner = ThreadedRunner.new(STDIN, SummarizeFinesByStreetName.new($counter), pool_size: 20, timeout: 1200)
+runner = ThreadedRunner.new(STDIN, SummarizeFinesByStreetName.new($counter), pool_size: 8, timeout: 1200)
 
 runner.done do |row|
    STDERR.puts "\ndone (row=#{row})"
