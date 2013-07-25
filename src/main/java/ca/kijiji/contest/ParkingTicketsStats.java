@@ -173,7 +173,7 @@ public class ParkingTicketsStats {
      */
     static final void worker() {
 		try {
-			String threadName = Thread.currentThread().getName();
+		//	String threadName = Thread.currentThread().getName();
 			Matcher nameMatcher = namePattern.matcher("");
 
 			// local access faster than volatile fields
