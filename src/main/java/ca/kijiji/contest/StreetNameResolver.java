@@ -86,7 +86,7 @@ class StreetNameResolver {
                 // Get just the street *name* from the street
                 streetName = _getStreetNameFromStreet(addressMatcher.group("street"));
 
-                // No tokens matched in the street name, it's likely invalid.
+                // Empty street name, reject it.
                 if(streetName.isEmpty()) {
                     return null;
                 }
