@@ -53,7 +53,7 @@ public class ParkingTicketsStats {
 				public void run() {
 					worker();
 				}};
-			int n = 7;
+			int n = 10;
 			Thread[] threads = new Thread[n];
 			for (int k = 0; k < n; k++) {
 				threads[k] = new Thread(group, runnable, Integer.toString(k), 1024);
@@ -268,7 +268,8 @@ public class ParkingTicketsStats {
 				}
 			//	println("Thread ["+ threadName +"] work remaining "+ work +" queued="+ byteArrayQueue.size());
 			} while (work > 0);
-			println(System.currentTimeMillis(), "Thread ["+ threadName +"] ending normally");
+
+		//	println(System.currentTimeMillis(), "Thread ["+ threadName +"] ending normally");
 		}
 		catch (InterruptedException e) {
 			e.printStackTrace();
