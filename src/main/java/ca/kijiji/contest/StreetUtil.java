@@ -8,9 +8,10 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.collections.MultiHashMap;
-import org.apache.commons.collections.MultiMap;
 import org.apache.commons.lang3.StringUtils;
+
+import com.google.common.collect.SetMultimap;
+import com.google.common.collect.HashMultimap;
 
 import ca.kijiji.contest.exceptions.UnparseableLocationException;
 
@@ -122,15 +123,14 @@ public class StreetUtil {
     	NUMBERED_STREET_ENDINGS.add("TH");
     }
 
-    // TODO: Find generic MultiMap.
     /**
      * Map of first letter of suffixes to a list of possible suffix endings.
      * Used to determine if the first character of one word + the next word
      * is actually a typo.
      */
-    private static MultiMap FAT_FINGERS = null;
+    private static SetMultimap<String, String> FAT_FINGERS = null;
     static {
-    	FAT_FINGERS = new MultiHashMap();
+    	FAT_FINGERS = HashMultimap.create();
     	for (String suffix : SUFFIX_EQUIV_MAP.keySet()) {
     		if (!suffix.equals("")) {
 	    		String fatFingerBegin = String.valueOf(suffix.charAt(0));
