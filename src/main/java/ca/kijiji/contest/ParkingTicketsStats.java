@@ -38,7 +38,7 @@ public class ParkingTicketsStats {
 	static final Pattern namePattern = Pattern.compile("([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)");
 
     static final int nWorkers = 4;
-	static final TObjectIntHashMap<String>[] maps = new TObjectIntHashMap[nWorkers];
+//	static final TObjectIntHashMap<String>[] maps = new TObjectIntHashMap[nWorkers];
 	static final TObjectIntHashMap<String> themap = new TObjectIntHashMap(20000);
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(final InputStream parkingTicketsStream) {
@@ -57,7 +57,7 @@ public class ParkingTicketsStats {
 
 	        for (int t = 0; t < nWorkers; t++) {
 	        	queues[t] = new ArrayBlockingQueue<>(512);
-	        	maps[t] = new TObjectIntHashMap(15000);
+	//        	maps[t] = new TObjectIntHashMap(15000);
 	        	workers[t] = new Worker(queues[t], themap);
 	        	workers[t].start();
 	        }
@@ -268,25 +268,25 @@ public class ParkingTicketsStats {
 				}
 			});
 
-			for (final TObjectIntHashMap<String> map : maps) {
-				map.forEachEntry(new TObjectIntProcedure<String>() {
-					public boolean execute(final String k, final int v) {
-						final Integer i = get(k);
-						if (i == null) {
-							put(k, v);
-						} else {
-							put(k,  i+v);
-						}
-						return true;
-					}});
-			}
+			final TObjectIntHashMap<String> map = themap;
+			map.forEachEntry(new TObjectIntProcedure<String>() {
+				public boolean execute(final String k, final int v) {
+					final Integer i = get(k);
+					if (i == null) {
+						put(k, v);
+					} else {
+						put(k,  i+v);
+					}
+					return true;
+				}});
 		}
 
 		private static Integer getMerged(final Object key) {
 			int v = 0;
-			for (final TObjectIntHashMap<String> map : maps) {
-				v += map.get(key);
-			}
+			v = themap.get(key);
+//			for (final TObjectIntHashMap<String> map : maps) {
+//				v += map.get(key);
+//			}
 			return v;
 		}
 	}
