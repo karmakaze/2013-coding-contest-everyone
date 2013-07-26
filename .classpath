@@ -13,5 +13,6 @@
 	<classpathentry kind="lib" path="lib/hppc-0.5.2.jar"/>
 	<classpathentry kind="lib" path="lib/trove-3.0.3.jar"/>
 	<classpathentry kind="lib" path="lib/disruptor-3.1.1.jar" sourcepath="/home/keith/.m2/repository/com/lmax/disruptor/3.1.1/disruptor-3.1.1-sources.jar"/>
+	<classpathentry kind="lib" path="lib/colt.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
