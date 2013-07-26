@@ -8,38 +8,12 @@ import java.util.Map;
 import java.util.SortedMap;
 import java.util.concurrent.Executors;
 
-import ca.kijiji.contest.IParkingTicketsStatsProcessor;
 import ca.kijiji.contest.mapred.MapTask.MapperResultCollector;
 import ca.kijiji.contest.mapred.ReduceTask.ReducerResultCollector;
+import ca.kijiji.contest.util.CharArrayReader;
 import ca.kijiji.contest.util.LargeChunkReader;
 
-public class MapReduceProcessor implements IParkingTicketsStatsProcessor {
-    /*
-     * == Checklist ==
-     * Readability: JavaDoc, in-code commenting, conventional naming, class/method separation, OOP-design
-     * Efficiency: Tested average <1800ms on an Intel Core i7-3520M, 8GB system memory, 7200RPM Momentus Thin
-     * - History: 3800ms -> 2500ms -> 2000ms -> 1900ms -> 1850ms -> 1800ms -> 1750ms
-     * - Optimizations:
-     * - - Multi-threading :D
-     * - - MapReduce model
-     * - - Combiner at mapper side to pre-reduce, saves memory
-     * - - Moved line splitting (Originally from BufferedReader) to mappers for more parallel processing
-     * - - Common calculations optimizations, omitting some accuracy as it's not the main goal
-     * - - Chunk size values should be played around to obtain the best value. This might depend on the Disk specs
-     * Parallel Processing: Using MapReduce to parallelize tasks that are independent of each other
-     * Creativity: I think using the MapReduce model is kinda interesting as it's generally used for much larger data
-     * using distributed systems
-     */
-    
-    /*
-     * == Memo ==
-     * - Estimate of what takes time
-     * - 1. IO read (So far, the largest factor. Determined by computer specs. Taking more than half the total time for processing)
-     * - 2. Splitting the lines (Minimal but seems to be an improvement when moved to multithreaded line splitting)
-     * - 3. Analysing the lines to get the road name and ticket amount (Minimize cases to process faster since this operation apply to every line)
-     * - 4. Adding everything up (Will be done once per record anyway, so parallelize using the reduce step seems a good choice)
-     * - 5. Sorting (Reduce tasks tree-sort it, then main thread merge the sorted trees together)
-     */
+public class MapReduceProcessor {
     
     // Tweakable variables
     private static final int AVAILABLE_CORES = Runtime.getRuntime().availableProcessors();
@@ -52,16 +26,11 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor {
      * More information on each step are located at {@link MapTask#performTask()} and {@link ReduceTask#performTask()}
      */
     public SortedMap<String, Integer> sortStreetsByProfitability(InputStream inputStream) throws Exception {
-        // Create a TaskTracker to run and track MapReduceTasks
         TaskTracker taskTracker = new TaskTracker(Executors.newFixedThreadPool(AVAILABLE_CORES));
         
-        // Map!
         List<MapperResultCollector> mapperResults = map(taskTracker, inputStream);
-        // Reduce!
         List<ReducerResultCollector> reducerResults = reduce(taskTracker, mapperResults);
-        // Kill unnecessary threads
         taskTracker.shutdown();
-        // Merge!
         SortedMap<String, Integer> result = merge(reducerResults);
         
         // File out = new File("C:\\Users\\lishid\\Desktop\\output.csv");
@@ -79,26 +48,30 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor {
     private List<MapperResultCollector> map(TaskTracker taskTracker, InputStream inputStream) throws Exception {
         List<MapperResultCollector> resultCollectors = new ArrayList<MapperResultCollector>();
         
-        // Read the stream in large chunks. Line splitting will be done on worker threads so as to parallelize work
+        // Read the stream in large chunks. Individual line splitting will be done
+        // on worker threads so as to parallelize as much work as possible
         LargeChunkReader reader = new LargeChunkReader(new InputStreamReader(inputStream));
-        int charsRead = 1;
-        while (charsRead > 0) {
+        int read = 1;
+        while (read > 0) {
             char[] buffer = new char[MAPPER_CHUNK_SIZE];
-            // Using the custom chunk reader, we can squeeze some performance time from splitting lines to
-            // parallelize that work into multiple threads.
-            // Also save some memory since there is no need to create temporary String objects
-            charsRead = reader.readChunk(buffer);
-            if (charsRead > 0) {
-                MapTask task = new MapTask(taskTracker, buffer, charsRead, PARTITIONS);
+            read = reader.readChunk(buffer);
+            if (read > 0) {
+                CharArrayReader charArrayReader = new CharArrayReader(buffer, 0, read);
+                MapTask task = new MapTask(taskTracker, charArrayReader, PARTITIONS);
                 taskTracker.startTask(task);
                 resultCollectors.add(task.getFutureResult());
             }
         }
         reader.close();
         
-        // Wait until tasks are done
         taskTracker.waitForTasksAndReset();
-        return resultCollectors;
+        List<MapperResultCollector> validResults = new ArrayList<MapperResultCollector>();
+        for (MapperResultCollector collector : resultCollectors) {
+            if (collector.partitionedResult != null) {
+                validResults.add(collector);
+            }
+        }
+        return validResults;
     }
     
     private List<ReducerResultCollector> reduce(TaskTracker taskTracker, List<MapperResultCollector> input) throws Exception {
@@ -110,7 +83,6 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor {
             resultCollectors.add(task.getFutureResult());
         }
         
-        // Wait until tasks are done
         taskTracker.waitForTasksAndReset();
         return resultCollectors;
     }
@@ -126,5 +98,4 @@ public class MapReduceProcessor implements IParkingTicketsStatsProcessor {
         
         return result;
     }
-    
 }

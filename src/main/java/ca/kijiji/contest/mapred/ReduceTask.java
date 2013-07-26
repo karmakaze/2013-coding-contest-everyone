@@ -22,7 +22,7 @@ public class ReduceTask extends MapReduceTask {
     public ReducerResultCollector getFutureResult() {
         return resultCollector;
     }
-
+    
     /**
      * The reducer task: <br>
      * Take all mapper results for the same reducer partition and reduce it together. <br>
@@ -30,14 +30,9 @@ public class ReduceTask extends MapReduceTask {
      */
     @Override
     public void performTask() throws Exception {
-        // Reduce phase 1: Reduce data
         resultCollector.unsortedResult = null;
         for (MapperResultCollector mapperResult : mapperResults) {
-            if (mapperResult.partitionedResult == null) {
-                continue;
-            }
             if (resultCollector.unsortedResult == null) {
-                // Use the first one as the unsorted map to save some time and memory
                 resultCollector.unsortedResult = mapperResult.partitionedResult.get(partition);
             }
             else {
@@ -45,7 +40,6 @@ public class ReduceTask extends MapReduceTask {
             }
         }
         
-        // Reduce phase 2: Sort data
         resultCollector.result = CommonCalculations.sort(resultCollector.unsortedResult);
     }
     

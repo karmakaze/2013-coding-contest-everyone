@@ -43,7 +43,8 @@ public class TaskTracker {
     }
     
     /**
-     * Find out how many tasks are queued or running. Note that this is not synchronized for performance boost
+     * Find out how many tasks are queued or running. Note that this is not synchronized for a performance boost
+     * 
      * @return number of tasks that have not sent in termination signals
      */
     public int getUnfinishedTasks() {

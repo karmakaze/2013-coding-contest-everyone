@@ -10,14 +10,12 @@ import ca.kijiji.contest.util.CharArrayReader;
 
 public class MapTask extends MapReduceTask {
     private static ThreadLocal<MapperResultCollector> perThreadResultCollector = new ThreadLocal<MapperResultCollector>();
-    private char[] data;
-    private int dataSize;
+    private CharArrayReader dataReader;
     private MapperResultCollector resultCollector;
     
-    public MapTask(TaskTracker taskTracker, char[] data, int dataSize, int partitions) {
+    public MapTask(TaskTracker taskTracker, CharArrayReader dataReader, int partitions) {
         super(taskTracker);
-        this.data = data;
-        this.dataSize = dataSize;
+        this.dataReader = dataReader;
         resultCollector = new MapperResultCollector(partitions);
     }
     
@@ -33,20 +31,17 @@ public class MapTask extends MapReduceTask {
      */
     @Override
     public void performTask() throws Exception {
+        // Use a per-thread collector instead of a per-mapper collector to better combine values
         if (perThreadResultCollector.get() == null) {
             resultCollector.init();
             perThreadResultCollector.set(resultCollector);
         }
-        // Use a per-thread collector instead of a per-mapper collector to better combine values
         MapperResultCollector localResultCollector = perThreadResultCollector.get();
         
         MapResult mapResult = new MapResult();
-        CharArrayReader reader = new CharArrayReader(data, 0, dataSize);
         String line;
-        while ((line = reader.readLine()) != null) {
-            // Try catch to skip bad lines
+        while ((line = dataReader.readLine()) != null) {
             try {
-                // Map
                 CommonCalculations.map(line, mapResult);
                 String key = mapResult.key;
                 int value = mapResult.value;
@@ -73,9 +68,7 @@ public class MapTask extends MapReduceTask {
         }
         
         public void collect(String key, int value) {
-            // Partition
             int partition = CommonCalculations.getPartition(key.hashCode(), partitions);
-            // Combine
             CommonCalculations.combine(key, value, partitionedResult.get(partition));
         }
     }

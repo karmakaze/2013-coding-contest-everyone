@@ -49,7 +49,7 @@ public class CommonCalculations {
      * 
      * @param key
      * @param value
-     * @param map to put in the result of the combination
+     * @param map the result collector
      */
     public static void combine(String key, int value, Map<String, Integer> map) {
         if (map.containsKey(key)) {
@@ -99,12 +99,15 @@ public class CommonCalculations {
         // Seek starting index
         for (startIndex = 0; startIndex < endIndex; startIndex++) {
             String word = tokens[startIndex];
-            // This will ignore all tokens with non-alphabetic characters
-            if (isAlpha(word)) {
+            // This will ignore all tokens with non-alphabetic characters. Note that all numbered street will be gone,
+            // but it's ok since there's practically no data with those (only 4: 12TH=750$, 43RD=270$, 16TH=1645$, 42ND=40$)
+            if (isAlphabetic(word)) {
                 break;
             }
             // Removed: There's practically no data starting with #TH as the street name
-            // if(isNumberedStreetName(word)) { break; }
+            // if (isStreetName(word)) {
+            // break;
+            // }
             
             continue;
         }
@@ -182,7 +185,6 @@ public class CommonCalculations {
             this.base = base;
         }
         
-        // Note: this comparator imposes orderings that are inconsistent with equals.
         public int compare(String a, String b) {
             if (base.get(a) > base.get(b)) {
                 return -1;
@@ -191,23 +193,52 @@ public class CommonCalculations {
                 return 1;
             }
             else {
-                // Returning 0 would merge keys
                 return a.compareTo(b);
             }
         }
     }
     
-    private static boolean isAlpha(String word) {
+    private static boolean isAlphabetic(String word) {
         if (word.isEmpty())
             return false;
         
         char[] chars = word.toCharArray();
         for (char c : chars) {
-            if (!Character.isLetter(c)) {
+            if (!Character.isLetter(c) && c != '\'') {
                 return false;
             }
         }
         
         return true;
+    }
+    
+    @SuppressWarnings("unused")
+    private static boolean isStreetName(String word) {
+        if (word.isEmpty())
+            return false;
+        
+        char[] chars = word.toCharArray();
+        
+        // We have 3 cases to consider
+        // 1. All letters
+        // 2. All digits but ending with ST, ND, RD, or TH
+        // 3. Others
+        
+        boolean isAllLetters = true;
+        boolean isNumberStreet = (chars.length > 2 && ((chars[chars.length - 2] == 'S' && chars[chars.length - 1] == 'T') || (chars[chars.length - 2] == 'N' && chars[chars.length - 1] == 'D') || (chars[chars.length - 2] == 'R' && chars[chars.length - 1] == 'D') || (chars[chars.length - 2] == 'T' && chars[chars.length - 1] == 'H')));
+        for (int i = chars.length - 1; i >= 0; i--) {
+            // Start looking from the back. Check if we have any of the endings we want
+            if (!Character.isLetter(chars[i])) {
+                isAllLetters = false;
+            }
+            if (i < chars.length - 2 && !Character.isDigit(chars[i])) {
+                isNumberStreet = false;
+            }
+            if (!isAllLetters && !isNumberStreet) {
+                break;
+            }
+        }
+        
+        return isAllLetters || isNumberStreet;
     }
 }
