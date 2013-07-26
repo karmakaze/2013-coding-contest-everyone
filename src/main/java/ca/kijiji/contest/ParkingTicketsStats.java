@@ -39,6 +39,7 @@ public class ParkingTicketsStats {
 
     static final int nWorkers = 4;
 	static final TObjectIntHashMap<String>[] maps = new TObjectIntHashMap[nWorkers];
+	static final TObjectIntHashMap<String> themap = new TObjectIntHashMap(20000);
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(final InputStream parkingTicketsStream) {
     	printInterval("Pre-entry initialization");
@@ -55,9 +56,9 @@ public class ParkingTicketsStats {
 	        final Worker workers[] = new Worker[nWorkers];
 
 	        for (int t = 0; t < nWorkers; t++) {
-	        	queues[t] = new ArrayBlockingQueue<>(256);
+	        	queues[t] = new ArrayBlockingQueue<>(512);
 	        	maps[t] = new TObjectIntHashMap(15000);
-	        	workers[t] = new Worker(queues[t], maps[t]);
+	        	workers[t] = new Worker(queues[t], themap);
 	        	workers[t].start();
 	        }
 
@@ -65,7 +66,7 @@ public class ParkingTicketsStats {
     		int i = 0;
     		int j = 0;
     		int t = 0;
-    		for (int c = 16 * 1024 * 1024; (c = parkingTicketsStream.read(data, a, c)) > 0; ) {
+    		for (int c = 4 * 1024 * 1024; (c = parkingTicketsStream.read(data, a, c)) > 0; ) {
     			a += c;
     			i = j;
     			j = a;
@@ -169,13 +170,17 @@ public class ParkingTicketsStats {
     }
 
     public final static class Worker extends Thread {
+    	public volatile long pad7, pad6, pad5, pad4, pad3, pad2, pad1;
 		private final ArrayBlockingQueue<Long> queue;
 		private final TObjectIntHashMap<String> map;
 		private final Matcher nameMatcher = namePattern.matcher("");
+		public volatile long Pad1, Pad2, Pad3, Pad4, Pad5, Pad6, Pad7;
 
 		public Worker(final ArrayBlockingQueue<Long> queue, final TObjectIntHashMap<String> map) {
 			this.queue = queue;
 			this.map = map;
+			pad7 = pad6 = pad5 = pad4 = pad3 = pad2 = pad1 = 7;
+			Pad1 = Pad2 = Pad3 = Pad4 = Pad5 = Pad6 = Pad7 = 7;
 		}
 
         public final void run() {
@@ -237,7 +242,9 @@ public class ParkingTicketsStats {
 		    		nameMatcher.reset(location2);
 		    		if (nameMatcher.find()) {
 		    			final String name = nameMatcher.group();
-		    			map.adjustOrPutValue(name, amount, amount);
+		    			synchronized (map) {
+			    			map.adjustOrPutValue(name, amount, amount);
+		    			}
 					}
 					else {
 						// name could not be parsed, print out select subset of these errors
