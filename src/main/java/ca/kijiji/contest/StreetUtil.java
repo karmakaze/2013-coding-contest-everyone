@@ -159,7 +159,7 @@ public class StreetUtil {
     }    
 
     /**
-     * Determines if the string is a numbered street.
+     * Determines if the string is a numbered street (eg. 3RD, 1ST, 42ND).
      * @param s The string to test.
      * @return True if it's a numbered street. False if it ain't.
      */
@@ -200,8 +200,7 @@ public class StreetUtil {
      * the real suffix if it exists, otherwise null.
      */
     public static String getTypoSuffix(String previousToLastPart, String lastPart) {
-    	boolean tooShortToBeFatFingered = previousToLastPart == null || previousToLastPart.length() < 1 ||
-    			previousToLastPart.length() < 1;
+    	boolean tooShortToBeFatFingered = previousToLastPart == null || previousToLastPart.length() < 1;
     	if (tooShortToBeFatFingered) {
     		return null;
     	}
