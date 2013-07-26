@@ -1,19 +1,19 @@
 package ca.kijiji.contest;
 
+import gnu.trove.map.hash.TObjectIntHashMap;
+import gnu.trove.procedure.TObjectIntProcedure;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import cern.colt.map.OpenIntIntHashMap;
 
 /**
  * Pipeline decomposition:
@@ -33,14 +33,12 @@ public class ParkingTicketsStats {
 	static final int SIZE = 1 << BITS;
 	static final int MASK = SIZE - 1;
 
-	static final String[] keys = new String[SIZE];
-
 	static volatile byte[] data;
 
 	static final Pattern namePattern = Pattern.compile("([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)");
 
     static final int nWorkers = 4;
-	static final OpenIntIntHashMap[] maps = new OpenIntIntHashMap[nWorkers];
+	static final TObjectIntHashMap<String>[] maps = new TObjectIntHashMap[nWorkers];
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(final InputStream parkingTicketsStream) {
     	printInterval("Pre-entry initialization");
@@ -58,7 +56,7 @@ public class ParkingTicketsStats {
 
 	        for (int t = 0; t < nWorkers; t++) {
 	        	queues[t] = new ArrayBlockingQueue<>(256);
-	        	maps[t] = new OpenIntIntHashMap(15000);
+	        	maps[t] = new TObjectIntHashMap(15000);
 	        	workers[t] = new Worker(queues[t], maps[t]);
 	        	workers[t].start();
 	        }
@@ -127,6 +125,8 @@ public class ParkingTicketsStats {
 
     	final SortedMap<String, Integer> sorted = new MergeMap();
 
+    	printInterval("Maps merged");
+
         return sorted;
     }
 
@@ -170,10 +170,10 @@ public class ParkingTicketsStats {
 
     public final static class Worker extends Thread {
 		private final ArrayBlockingQueue<Long> queue;
-		private final OpenIntIntHashMap map;
+		private final TObjectIntHashMap<String> map;
 		private final Matcher nameMatcher = namePattern.matcher("");
 
-		public Worker(final ArrayBlockingQueue<Long> queue, final OpenIntIntHashMap map) {
+		public Worker(final ArrayBlockingQueue<Long> queue, final TObjectIntHashMap<String> map) {
 			this.queue = queue;
 			this.map = map;
 		}
@@ -237,12 +237,7 @@ public class ParkingTicketsStats {
 		    		nameMatcher.reset(location2);
 		    		if (nameMatcher.find()) {
 		    			final String name = nameMatcher.group();
-		    			final int h = hash(name);
-		    			final int v = map.get(h);
-		    			if (v == 0) {
-		    				keys[h] = name;
-		    			}
-		    			map.put(h, v + amount);
+		    			map.adjustOrPutValue(name, amount, amount);
 					}
 					else {
 						// name could not be parsed, print out select subset of these errors
@@ -255,101 +250,37 @@ public class ParkingTicketsStats {
         }
     }
 
-	public static final class MergeMap implements SortedMap<String, Integer> {
-		@Override
-		public Integer get(final Object key) {
-			final int k = ParkingTicketsStats.hash((String) key);
+	@SuppressWarnings("serial")
+	public static final class MergeMap extends TreeMap<String, Integer> {
+		public MergeMap() {
+			super(new Comparator<String>() {
+				public int compare(final String o1, final String o2) {
+					final int c = getMerged(o2) - getMerged(o1);
+					if (c != 0) return c;
+					return o2.compareTo(o1);
+				}
+			});
 
+			for (final TObjectIntHashMap<String> map : maps) {
+				map.forEachEntry(new TObjectIntProcedure<String>() {
+					public boolean execute(final String k, final int v) {
+						final Integer i = get(k);
+						if (i == null) {
+							put(k, v);
+						} else {
+							put(k,  i+v);
+						}
+						return true;
+					}});
+			}
+		}
+
+		private static Integer getMerged(final Object key) {
 			int v = 0;
-			for (final OpenIntIntHashMap map : maps) {
-				v += map.get(k);
+			for (final TObjectIntHashMap<String> map : maps) {
+				v += map.get(key);
 			}
 			return v;
-		}
-
-		public int compare(final String o1, final String o2) {
-			final int c = get(o2) - get(o1);
-			if (c != 0) return c;
-			return o2.compareTo(o1);
-		}
-
-		public Set<java.util.Map.Entry<String, Integer>> entrySet() {
-			return null;
-		}
-
-		public int size() {
-			return 0;
-		}
-
-		public boolean isEmpty() {
-			return false;
-		}
-
-		public boolean containsKey(final Object key) {
-			return false;
-		}
-
-		public boolean containsValue(final Object value) {
-			return false;
-		}
-
-		public Integer put(final String key, final Integer value) {
-			return null;
-		}
-
-		public Integer remove(final Object key) {
-			return null;
-		}
-
-		public void putAll(final Map<? extends String, ? extends Integer> m) {
-		}
-
-		public void clear() {
-		}
-
-		public Set<String> keySet() {
-			return null;
-		}
-
-		public Collection<Integer> values() {
-			return null;
-		}
-
-		public Comparator<? super String> comparator() {
-			return null;
-		}
-
-		public SortedMap<String, Integer> subMap(final String fromKey, final String toKey) {
-			return null;
-		}
-
-		public SortedMap<String, Integer> headMap(final String toKey) {
-			return null;
-		}
-
-		public SortedMap<String, Integer> tailMap(final String fromKey) {
-			return null;
-		}
-
-		public String firstKey() {
-			String key = null;
-			int maxVal = Integer.MIN_VALUE;
-
-			for (int i = 0; i < SIZE; i++) {
-				final String k = keys[i];
-				if (k != null) {
-					final int v = get(k);
-					if (v >= maxVal) {
-						maxVal = v;
-						key = k;
-					}
-				}
-			}
-			return key;
-		}
-
-		public String lastKey() {
-			return null;
 		}
 	}
 }
