@@ -1,4 +1,4 @@
-package ca.kijiji.contest.util;
+package com.lishid.kijiji.contest.util;
 
 /**
  * Used to read lines from a char array

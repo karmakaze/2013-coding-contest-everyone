@@ -1,4 +1,4 @@
-package ca.kijiji.contest.util;
+package com.lishid.kijiji.contest.util;
 
 import java.io.IOException;
 import java.io.Reader;

@@ -1,4 +1,4 @@
-package ca.kijiji.contest;
+package com.lishid.kijiji.contest;
 
 import java.util.Arrays;
 import java.util.Comparator;
@@ -34,18 +34,18 @@ public class CommonCalculations {
     }
     
     /**
-     * Used to partition map results to reducers
+     * Used to partition map results to reducers. This is done by using Modulo on the hashcode
      * 
      * @param hashCode the hashcode of the key
      * @param partitions the number of partitions
-     * @return the partition the key belongs to
+     * @return the partition p the key belongs to, 0 <= p < partitions;
      */
     public static int getPartition(int hashCode, int partitions) {
         return ((hashCode % partitions) + partitions) % partitions;
     }
     
     /**
-     * Combine key-value pairs together
+     * Combine key-value pairs together by adding values together for the same key if it existed in the map
      * 
      * @param key
      * @param value
@@ -83,35 +83,31 @@ public class CommonCalculations {
     }
     
     private static String findRoadName(String roadName) {
-        // Removed: Most data is upper case, lower case data is minimal
+        // Removed: Most data is upper case, lower case data is minimal.
+        // This shouldn't affect accuracy much
         // key = key.toUpperCase().trim();
         
         String[] tokens = roadName.split(" ");
         
-        // Single word shortcut
         if (tokens.length == 1) {
             return roadName;
         }
         
-        // Multi word
         int startIndex = 0;
         int endIndex = tokens.length - 1;
-        // Seek starting index
+        
         for (startIndex = 0; startIndex < endIndex; startIndex++) {
             String word = tokens[startIndex];
-            // This will ignore all tokens with non-alphabetic characters. Note that all numbered street will be gone,
-            // but it's ok since there's practically no data with those (only 4: 12TH=750$, 43RD=270$, 16TH=1645$, 42ND=40$)
-            if (isAlphabetic(word)) {
+            // This will ignore all tokens with non-alphabetic characters. Note that all numbered streets will be gone,
+            // but it's ok since there's practically no data with those
+            // (only 4: 12TH=750$, 43RD=270$, 16TH=1645$, 42ND=40$)
+            if (isAlphabetic(word)) { // isStreetName(word)
                 break;
             }
-            // Removed: There's practically no data starting with #TH as the street name
-            // if (isStreetName(word)) {
-            // break;
-            // }
             
             continue;
         }
-        // Seek ending index
+        
         for (endIndex = startIndex; endIndex < tokens.length - 1; endIndex++) {
             if (filteredWords.contains(tokens[endIndex + 1])) {
                 break;
@@ -132,9 +128,7 @@ public class CommonCalculations {
         return sb.toString();
     }
     
-    /**
-     * All words that should be filtered out, usually somewhere at the end of the road name
-     */
+    /** Stores all words that should be filtered out, usually somewhere at the end of the road name */
     static Set<String> filteredWords = new HashSet<String>();
     static {
         addReservedFilteredWord();

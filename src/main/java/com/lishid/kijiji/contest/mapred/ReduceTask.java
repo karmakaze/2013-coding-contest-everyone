@@ -1,11 +1,11 @@
-package ca.kijiji.contest.mapred;
+package com.lishid.kijiji.contest.mapred;
 
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 
-import ca.kijiji.contest.CommonCalculations;
-import ca.kijiji.contest.mapred.MapTask.MapperResultCollector;
+import com.lishid.kijiji.contest.CommonCalculations;
+import com.lishid.kijiji.contest.mapred.MapTask.MapperResultCollector;
 
 public class ReduceTask extends MapReduceTask {
     List<MapperResultCollector> mapperResults;

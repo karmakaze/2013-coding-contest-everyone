@@ -1,4 +1,4 @@
-package ca.kijiji.contest.mapred;
+package com.lishid.kijiji.contest.mapred;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -8,10 +8,10 @@ import java.util.Map;
 import java.util.SortedMap;
 import java.util.concurrent.Executors;
 
-import ca.kijiji.contest.mapred.MapTask.MapperResultCollector;
-import ca.kijiji.contest.mapred.ReduceTask.ReducerResultCollector;
-import ca.kijiji.contest.util.CharArrayReader;
-import ca.kijiji.contest.util.LargeChunkReader;
+import com.lishid.kijiji.contest.mapred.MapTask.MapperResultCollector;
+import com.lishid.kijiji.contest.mapred.ReduceTask.ReducerResultCollector;
+import com.lishid.kijiji.contest.util.CharArrayReader;
+import com.lishid.kijiji.contest.util.LargeChunkReader;
 
 public class MapReduceProcessor {
     
@@ -21,7 +21,7 @@ public class MapReduceProcessor {
     private static int PARTITIONS = AVAILABLE_CORES;
     
     /**
-     * This implementation uses the "Map Reduce" technique to parallelize work by first performing independent
+     * This implementation uses the "MapReduce" technique to parallelize work by first performing independent
      * Map operations, then independent Reduce operations, and finally merging the result. <br>
      * More information on each step are located at {@link MapTask#performTask()} and {@link ReduceTask#performTask()}
      */
@@ -30,17 +30,10 @@ public class MapReduceProcessor {
         
         List<MapperResultCollector> mapperResults = map(taskTracker, inputStream);
         List<ReducerResultCollector> reducerResults = reduce(taskTracker, mapperResults);
-        taskTracker.shutdown();
-        SortedMap<String, Integer> result = merge(reducerResults);
         
-        // File out = new File("C:\\Users\\lishid\\Desktop\\output.csv");
-        // out.createNewFile();
-        // PrintStream outPrintStream = new PrintStream(out);
-        // for (Entry<String, Integer> road : result.entrySet()) {
-        // outPrintStream.println(road.getKey() + ": " + road.getValue());
-        // }
-        // outPrintStream.close();
-        // System.out.println(result.size());
+        taskTracker.shutdown();
+        
+        SortedMap<String, Integer> result = merge(reducerResults);
         
         return result;
     }

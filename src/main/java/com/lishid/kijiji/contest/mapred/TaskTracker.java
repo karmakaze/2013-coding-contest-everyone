@@ -1,4 +1,4 @@
-package ca.kijiji.contest.mapred;
+package com.lishid.kijiji.contest.mapred;
 
 import java.util.concurrent.ExecutorService;
 

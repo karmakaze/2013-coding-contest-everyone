@@ -1,12 +1,12 @@
-package ca.kijiji.contest.mapred;
+package com.lishid.kijiji.contest.mapred;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import ca.kijiji.contest.CommonCalculations;
-import ca.kijiji.contest.CommonCalculations.MapResult;
-import ca.kijiji.contest.util.CharArrayReader;
+import com.lishid.kijiji.contest.CommonCalculations;
+import com.lishid.kijiji.contest.CommonCalculations.MapResult;
+import com.lishid.kijiji.contest.util.CharArrayReader;
 
 public class MapTask extends MapReduceTask {
     private static ThreadLocal<MapperResultCollector> perThreadResultCollector = new ThreadLocal<MapperResultCollector>();
@@ -26,7 +26,7 @@ public class MapTask extends MapReduceTask {
     /**
      * The map task: <br>
      * Split a large char array into lines and process each line individually. <br>
-     * Each line is split into the key (street name) and value (ticket amount). <br>
+     * Each line is split into the key (street name, processed and cleaned) and value (ticket amount). <br>
      * The map task finally collects the result into a result collector (also partitions and combines)
      */
     @Override
