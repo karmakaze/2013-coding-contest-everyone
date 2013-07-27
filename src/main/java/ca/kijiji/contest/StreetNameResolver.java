@@ -93,7 +93,7 @@ class StreetNameResolver {
         // Try to remove the street number from the front so we're more likely to get a cache hit
         String streetCacheKey = _getAddressCacheKey(address);
 
-        // We have a valid cache key, check if we have a cached name
+        // Check if we have a cached name
         String streetName = _mStreetCache.get(streetCacheKey);
 
         // No cached street name, calculate it

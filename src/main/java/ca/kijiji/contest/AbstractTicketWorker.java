@@ -92,7 +92,7 @@ abstract class AbstractTicketWorker extends Thread {
                     // Do we have the correct number of columns now?
                     if(ticketCols.length != _mNumCSVCols) {
 
-                        // Print an error and skip to the next line
+                        // Guess not, print an error and skip to the next line
                         String msg = String.format("Expected %d columns, got %d (invalid tickets file?):\n%s",
                                 _mNumCSVCols, ticketCols.length, message);
                         LOG.warn(msg);
@@ -102,6 +102,7 @@ abstract class AbstractTicketWorker extends Thread {
 
                 // Implementation-defined method of processing the columns
                 processTicketCols(ticketCols);
+
             } catch (InterruptedException e) {
                 return;
             }
