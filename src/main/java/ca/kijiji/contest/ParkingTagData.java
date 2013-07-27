@@ -28,7 +28,7 @@ public class ParkingTagData {
 		final String streetNumberPatternString = "([\\d$-]*)";
 		final String streetNamePatternString = "([a-zA-Z ']+)";
 		final String streetTypePatternString = 
-				"(AV|AVE|BLVD|CIR|CIRCLE|CRCL|CRT|CRES|CT|DR|DRIVE|GARDENS|GDNS|GRV|GRDNS|GT|HILL|HTS|LANE|LN|MEWS|PARKWAY|PKWY|PL|PROMENADE|QUAY|RD|ROAD|SQ|ST|TER|TRL|VISTA|WAY)";
+				"(AV|AVE|BL|BLVD|CIR|CIRCLE|COURT|CR|CRCL|CRT|CRES|CT|DR|DRIVE|GARDENS|GDNS|GRV|GRDNS|GT|HILL|HTS|LANE|LN|LWN|MEWS|PARKWAY|PATH|PKWY|PL|PROMENADE|QUAY|RD|ROAD|SQ|ST|TER|TRL|VISTA|WAY)";
 		final String streetDirectionPatternString = "([NESW]?)";
 		
 		final Pattern locationPattern = Pattern.compile(
