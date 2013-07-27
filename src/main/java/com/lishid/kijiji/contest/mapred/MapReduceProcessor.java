@@ -1,7 +1,6 @@
 package com.lishid.kijiji.contest.mapred;
 
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
@@ -11,6 +10,7 @@ import java.util.concurrent.Executors;
 import com.lishid.kijiji.contest.mapred.MapTask.MapperResultCollector;
 import com.lishid.kijiji.contest.mapred.ReduceTask.ReducerResultCollector;
 import com.lishid.kijiji.contest.util.CharArrayReader;
+import com.lishid.kijiji.contest.util.InputStreamAsciiReader;
 import com.lishid.kijiji.contest.util.LargeChunkReader;
 import com.lishid.kijiji.contest.util.ParkingTicketTreeMap;
 
@@ -23,6 +23,7 @@ public class MapReduceProcessor {
     
     /** Recycle those large char arrays using a thread-safe object pool */
     private static final ConcurrentLinkedQueue<char[]> recycler = new ConcurrentLinkedQueue<char[]>();
+    long startTime = System.currentTimeMillis();
     
     /**
      * This implementation uses a technique similar to "MapReduce" to parallelize work by first performing independent
@@ -31,7 +32,6 @@ public class MapReduceProcessor {
      */
     public SortedMap<String, Integer> sortStreetsByProfitability(InputStream inputStream) throws Exception {
         TaskTracker taskTracker = new TaskTracker(Executors.newFixedThreadPool(AVAILABLE_CORES));
-        
         List<MapperResultCollector> mapperResults = map(taskTracker, inputStream);
         List<ReducerResultCollector> reducerResults = reduce(taskTracker, mapperResults);
         
@@ -43,12 +43,13 @@ public class MapReduceProcessor {
     }
     
     private List<MapperResultCollector> map(TaskTracker taskTracker, InputStream inputStream) throws Exception {
+        startTime = System.currentTimeMillis();
         List<MapperResultCollector> resultCollectors = new ArrayList<MapperResultCollector>();
         // Side note here, the inputstream contains 228304949 bytes, 228304515 chars
         
         // Read the stream in large chunks. Individual line splitting will be done
         // on worker threads so as to parallelize as much work as possible
-        LargeChunkReader reader = new LargeChunkReader(new InputStreamReader(inputStream));
+        LargeChunkReader reader = new LargeChunkReader(new InputStreamAsciiReader(inputStream));
         int read = 1;
         while (read > 0) {
             char[] buffer = recycler.poll();
@@ -68,7 +69,9 @@ public class MapReduceProcessor {
         }
         reader.close();
         
+        System.out.println("Map dispatched " + (System.currentTimeMillis() - startTime));
         taskTracker.waitForTasksAndReset();
+        System.out.println("Map done " + (System.currentTimeMillis() - startTime));
         // System.out.println(recycler.size());
         
         List<MapperResultCollector> validResults = new ArrayList<MapperResultCollector>();
@@ -81,7 +84,7 @@ public class MapReduceProcessor {
     }
     
     private List<ReducerResultCollector> reduce(TaskTracker taskTracker, List<MapperResultCollector> input) throws Exception {
-        List<ReducerResultCollector> resultCollectors = new ArrayList<ReducerResultCollector>(AVAILABLE_CORES);
+        List<ReducerResultCollector> resultCollectors = new ArrayList<ReducerResultCollector>(PARTITIONS);
         
         for (int i = 0; i < PARTITIONS; i++) {
             ReduceTask task = new ReduceTask(taskTracker, input, i);
