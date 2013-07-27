@@ -23,7 +23,28 @@ public class ParkingTagData {
 	}
 	
 	public String streetNameFromLocationStringUsingRegex(String str) {
-		return str;
+		// Using Canada Post's Find a Postal Code page as a rough reference for address components
+		
+		final String streetNumberPatternString = "([\\d]*)";
+		final String streetNamePatternString = "([a-zA-Z ]+)";
+		final String streetTypePatternString = "(AVE|CIR|DR|GARDENS|GDNS|RD|ST)";
+		final String streetDirectionPatternString = "([NESW]?)";
+		
+		final Pattern locationPattern = Pattern.compile(
+				streetNumberPatternString + " ?" +
+				streetNamePatternString + " ?" +
+				streetTypePatternString + " ?" +
+				streetDirectionPatternString
+				);
+		
+		Matcher matcher = locationPattern.matcher(str);
+    	if (matcher.matches()) {
+    		System.out.println(str + "\t" + matcher.group(2));
+    		return matcher.group(2);
+    	} else {
+    		System.out.println(str + "\t");
+    		return null;
+    	}
 	}
 	
 	public String toString() {
