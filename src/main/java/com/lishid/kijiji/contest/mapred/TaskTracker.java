@@ -1,9 +1,11 @@
 package com.lishid.kijiji.contest.mapred;
 
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class TaskTracker {
-    private ExecutorService threadPool;
+    private ThreadPoolExecutor threadPool;
     private int startedTasks;
     private int finishedTasks;
     private boolean waitingForWake;
@@ -11,8 +13,9 @@ public class TaskTracker {
     /**
      * TaskTracker uses a fixed-size thread pool to run MapReduceTask and provides an easy way of waiting until all tasks finish
      */
-    public TaskTracker(ExecutorService threadPool) {
-        this.threadPool = threadPool;
+    public TaskTracker(int threads) {
+        this.threadPool = new ThreadPoolExecutor(threads, threads, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>());
+        
         reset();
     }
     
@@ -21,6 +24,16 @@ public class TaskTracker {
      */
     public void shutdown() {
         threadPool.shutdown();
+    }
+    
+    /**
+     * Change the number of allowed threads
+     * 
+     * @param threads
+     */
+    public void setThreads(int threads) {
+        threadPool.setMaximumPoolSize(threads);
+        threadPool.setCorePoolSize(threads);
     }
     
     /**

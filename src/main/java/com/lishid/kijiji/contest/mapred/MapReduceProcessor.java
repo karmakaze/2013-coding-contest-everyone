@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Executors;
 
 import com.lishid.kijiji.contest.mapred.MapTask.MapperResultCollector;
 import com.lishid.kijiji.contest.mapred.ReduceTask.ReducerResultCollector;
@@ -33,8 +32,7 @@ public class MapReduceProcessor {
      * creates temporary char[], which can be optimized by reusing the same char[] the buffered reading process used.
      */
     public SortedMap<String, Integer> sortStreetsByProfitability(InputStream inputStream) throws Exception {
-        
-        TaskTracker taskTracker = new TaskTracker(Executors.newFixedThreadPool(AVAILABLE_CORES));
+        TaskTracker taskTracker = new TaskTracker(AVAILABLE_CORES - 1);
         
         List<MapperResultCollector> mapperResults = map(taskTracker, inputStream);
         List<ReducerResultCollector> reducerResults = reduce(taskTracker, mapperResults);
@@ -81,6 +79,7 @@ public class MapReduceProcessor {
             }
         }
         reader.close();
+        taskTracker.setThreads(AVAILABLE_CORES);
         System.out.println("IO Took: " + (System.currentTimeMillis() - startTime));
         
         taskTracker.waitForTasksAndReset();
@@ -110,7 +109,7 @@ public class MapReduceProcessor {
     private SortedMap<String, Integer> merge(List<ReducerResultCollector> input) {
         SortedMap<String, Integer> sortedResult = null;
         
-        for (int i = 1; i < input.size(); i++) {
+        for (int i = 0; i < input.size(); i++) {
             if (sortedResult == null) {
                 sortedResult = new ParkingTicketTreeMap(input.get(i).result);
             }

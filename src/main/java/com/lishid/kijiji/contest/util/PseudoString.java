@@ -129,7 +129,7 @@ public class PseudoString implements Comparable<PseudoString> {
                 column += 1;
             }
         }
-        if (last < end && columns[nextColumnCheck] == column) {
+        if (columns[nextColumnCheck] == column && last < end) {
             result.add(new PseudoString(data, last, end - last));
         }
         if (result.isEmpty()) {
