@@ -3,6 +3,7 @@ package com.lishid.kijiji.contest.mapred;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.lishid.kijiji.contest.CommonCalculations;
 import com.lishid.kijiji.contest.CommonCalculations.MapResult;
@@ -10,11 +11,13 @@ import com.lishid.kijiji.contest.util.CharArrayReader;
 
 public class MapTask extends MapReduceTask {
     private static ThreadLocal<MapperResultCollector> perThreadResultCollector = new ThreadLocal<MapperResultCollector>();
+    private ConcurrentLinkedQueue<char[]> recycler;
     private CharArrayReader dataReader;
     private MapperResultCollector resultCollector;
     
-    public MapTask(TaskTracker taskTracker, CharArrayReader dataReader, int partitions) {
+    public MapTask(TaskTracker taskTracker, ConcurrentLinkedQueue<char[]> recycler, CharArrayReader dataReader, int partitions) {
         super(taskTracker);
+        this.recycler = recycler;
         this.dataReader = dataReader;
         resultCollector = new MapperResultCollector(partitions);
     }
@@ -50,6 +53,7 @@ public class MapTask extends MapReduceTask {
             }
             catch (Exception e) {}
         }
+        recycler.offer(dataReader.getBuffer());
     }
     
     public static class MapperResultCollector {

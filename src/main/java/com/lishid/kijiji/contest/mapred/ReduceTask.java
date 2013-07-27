@@ -2,7 +2,6 @@ package com.lishid.kijiji.contest.mapred;
 
 import java.util.List;
 import java.util.Map;
-import java.util.SortedMap;
 
 import com.lishid.kijiji.contest.CommonCalculations;
 import com.lishid.kijiji.contest.mapred.MapTask.MapperResultCollector;
@@ -25,26 +24,22 @@ public class ReduceTask extends MapReduceTask {
     
     /**
      * The reducer task: <br>
-     * Take all mapper results for the same reducer partition and reduce it together. <br>
-     * Sort the data before returning it. <br>
+     * Take all mapper results for the same reducer partition and reduce(combine) it. <br>
      */
     @Override
     public void performTask() throws Exception {
-        resultCollector.unsortedResult = null;
+        resultCollector.result = null;
         for (MapperResultCollector mapperResult : mapperResults) {
-            if (resultCollector.unsortedResult == null) {
-                resultCollector.unsortedResult = mapperResult.partitionedResult.get(partition);
+            if (resultCollector.result == null) {
+                resultCollector.result = mapperResult.partitionedResult.get(partition);
             }
             else {
-                CommonCalculations.reduce(mapperResult.partitionedResult.get(partition), resultCollector.unsortedResult);
+                CommonCalculations.reduce(mapperResult.partitionedResult.get(partition), resultCollector.result);
             }
         }
-        
-        resultCollector.result = CommonCalculations.sort(resultCollector.unsortedResult);
     }
     
     public static class ReducerResultCollector {
-        Map<String, Integer> unsortedResult;
-        SortedMap<String, Integer> result;
+        Map<String, Integer> result;
     }
 }

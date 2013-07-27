@@ -60,4 +60,13 @@ public class CharArrayReader {
         
         return new String(buffer, startIndex, endIndex - startIndex);
     }
+    
+    /**
+     * Gets the underlying buffer
+     * 
+     * @return the underlying buffer
+     */
+    public char[] getBuffer() {
+        return buffer;
+    }
 }

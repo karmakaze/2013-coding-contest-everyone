@@ -1,13 +1,10 @@
 package com.lishid.kijiji.contest;
 
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
 
 public class CommonCalculations {
     
@@ -68,18 +65,6 @@ public class CommonCalculations {
         for (Entry<String, Integer> entry : input.entrySet()) {
             combine(entry.getKey(), entry.getValue(), result);
         }
-    }
-    
-    /**
-     * Make a SortedMap by value
-     * 
-     * @param input
-     * @return a SortedMap by value (Integer)
-     */
-    public static SortedMap<String, Integer> sort(Map<String, Integer> input) {
-        TreeMap<String, Integer> result = new TreeMap<String, Integer>(new ValueComparator(input));
-        result.putAll(input);
-        return result;
     }
     
     private static String findRoadName(String roadName) {
@@ -170,26 +155,6 @@ public class CommonCalculations {
     
     private static void addFilteredWord(String... words) {
         filteredWords.addAll(Arrays.asList(words));
-    }
-    
-    private static class ValueComparator implements Comparator<String> {
-        Map<String, Integer> base;
-        
-        public ValueComparator(Map<String, Integer> base) {
-            this.base = base;
-        }
-        
-        public int compare(String a, String b) {
-            if (base.get(a) > base.get(b)) {
-                return -1;
-            }
-            else if (base.get(a) < base.get(b)) {
-                return 1;
-            }
-            else {
-                return a.compareTo(b);
-            }
-        }
     }
     
     private static boolean isAlphabetic(String word) {

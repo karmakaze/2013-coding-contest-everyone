@@ -4,24 +4,28 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.SortedMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 
 import com.lishid.kijiji.contest.mapred.MapTask.MapperResultCollector;
 import com.lishid.kijiji.contest.mapred.ReduceTask.ReducerResultCollector;
 import com.lishid.kijiji.contest.util.CharArrayReader;
 import com.lishid.kijiji.contest.util.LargeChunkReader;
+import com.lishid.kijiji.contest.util.ParkingTicketTreeMap;
 
 public class MapReduceProcessor {
     
     // Tweakable variables
     private static final int AVAILABLE_CORES = Runtime.getRuntime().availableProcessors();
-    private static int MAPPER_CHUNK_SIZE = 1 << 18; // 524288 (seemed like the best value on my setup)
-    private static int PARTITIONS = AVAILABLE_CORES;
+    private static final int MAPPER_CHUNK_SIZE = 1 << 20; // 2097152 (seemed like the best value on my setup)
+    private static final int PARTITIONS = AVAILABLE_CORES;
+    
+    /** Recycle those large char arrays using a thread-safe object pool */
+    private static final ConcurrentLinkedQueue<char[]> recycler = new ConcurrentLinkedQueue<char[]>();
     
     /**
-     * This implementation uses the "MapReduce" technique to parallelize work by first performing independent
+     * This implementation uses a technique similar to "MapReduce" to parallelize work by first performing independent
      * Map operations, then independent Reduce operations, and finally merging the result. <br>
      * More information on each step are located at {@link MapTask#performTask()} and {@link ReduceTask#performTask()}
      */
@@ -40,24 +44,33 @@ public class MapReduceProcessor {
     
     private List<MapperResultCollector> map(TaskTracker taskTracker, InputStream inputStream) throws Exception {
         List<MapperResultCollector> resultCollectors = new ArrayList<MapperResultCollector>();
+        // Side note here, the inputstream contains 228304949 bytes, 228304515 chars
         
         // Read the stream in large chunks. Individual line splitting will be done
         // on worker threads so as to parallelize as much work as possible
         LargeChunkReader reader = new LargeChunkReader(new InputStreamReader(inputStream));
         int read = 1;
         while (read > 0) {
-            char[] buffer = new char[MAPPER_CHUNK_SIZE];
+            char[] buffer = recycler.poll();
+            if (buffer == null) {
+                buffer = new char[MAPPER_CHUNK_SIZE];
+            }
             read = reader.readChunk(buffer);
             if (read > 0) {
                 CharArrayReader charArrayReader = new CharArrayReader(buffer, 0, read);
-                MapTask task = new MapTask(taskTracker, charArrayReader, PARTITIONS);
+                MapTask task = new MapTask(taskTracker, recycler, charArrayReader, PARTITIONS);
                 taskTracker.startTask(task);
                 resultCollectors.add(task.getFutureResult());
+            }
+            else {
+                recycler.offer(buffer);
             }
         }
         reader.close();
         
         taskTracker.waitForTasksAndReset();
+        // System.out.println(recycler.size());
+        
         List<MapperResultCollector> validResults = new ArrayList<MapperResultCollector>();
         for (MapperResultCollector collector : resultCollectors) {
             if (collector.partitionedResult != null) {
@@ -81,14 +94,12 @@ public class MapReduceProcessor {
     }
     
     private SortedMap<String, Integer> merge(List<ReducerResultCollector> input) {
-        Map<String, Integer> unsortedResult = input.get(0).unsortedResult;
-        SortedMap<String, Integer> result = input.get(0).result;
+        SortedMap<String, Integer> sortedResult = new ParkingTicketTreeMap(input.get(0).result);
         
         for (int i = 1; i < input.size(); i++) {
-            unsortedResult.putAll(input.get(i).unsortedResult);
-            result.putAll(input.get(i).result);
+            sortedResult.putAll(input.get(i).result);
         }
         
-        return result;
+        return sortedResult;
     }
 }
