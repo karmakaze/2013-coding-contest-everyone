@@ -25,10 +25,10 @@ public class ParkingTagData {
 	public String streetNameFromLocationStringUsingRegex(String str) {
 		// Using Canada Post's Find a Postal Code page as a rough reference for address components
 		
-		final String streetNumberPatternString = "([\\d$-\\(/]*)";
-		final String streetNamePatternString = "([a-zA-Z -']+)";
+		final String streetNumberPatternString = "([i\\d$\\(/-]*)";
+		final String streetNamePatternString = "([a-zA-Z '-]+)";
 		final String streetTypePatternString = 
-				"(AV|AVE|AVENUE|BL|BLVD|BVLD|CIR|CIRCLE|CIRCUIT|COURT|CR|CRCL|CRT|CRES|CT|DR|DRIVE|GARDEN|GARDENS|GDNS|GR|GRV|GRDNS|GROVE|GT|HILL|HTS|KEEP|LANE|LINE|LN|LWN|MEWS|PARKWAY|PATH|PKWY|PL|PLACE|POINT|PROMENADE|PT|PTWY|QUAY|RAOD|RD|ROAD|SQ|ST|STREET|TER|TERR|TERRACE|TR|TRAIL|TRL|VE|VISTA|WAY|WOOD)";
+				"(AV|AVE|AVENUE|BL|BLVD|BVLD|CIR|CIRC|CIRCLE|CIRT|CIRCUIT|COURT|CR|CRCL|CRT|CRES|CT|DR|DRIVE|GARDEN|GARDENS|GDNS|GR|GRV|GRDNS|GROVE|GT|HILL|HTS|KEEP|LANE|LINE|LN|LWN|MALL|MEWS|PARKWAY|PATH|PARK|PK|PKWY|PL|PLACE|POINT|PROMENADE|PT|PTWY|QUAY|RAOD|RD|ROAD|SQ|ST|STREET|TER|TERR|TERRACE|TR|TRAIL|TRL|VE|VISTA|WALK|WAY|WOOD)\\.?";
 		final String streetDirectionPatternString = "([NESW]?)";
 		
 		final Pattern locationPattern = Pattern.compile(
