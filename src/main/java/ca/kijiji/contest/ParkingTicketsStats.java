@@ -3,14 +3,12 @@ package ca.kijiji.contest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.regex.Matcher;
@@ -27,13 +25,11 @@ public class ParkingTicketsStats {
 	static final AtomicIntegerArray vals = new AtomicIntegerArray(SIZE);
 	static volatile byte[] data;
 
-	static final String name = "([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)";
-	static final Pattern namePattern = Pattern.compile(name);
+	static final Pattern namePattern = Pattern.compile("([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)");
 
 	static volatile int available;
 
 	static final ArrayBlockingQueue<Long> byteArrayQueue = new ArrayBlockingQueue<Long>(1024, true);
-	static final AtomicInteger workItems = new AtomicInteger();
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
     	printInterval("Pre-entry initialization");
@@ -61,8 +57,6 @@ public class ParkingTicketsStats {
 
     		data = new byte[available];
 
-    		workItems.incrementAndGet(); // 1 for first producer task
-
     		for (Thread t : threads) {
 	    		t.start();
     		}
@@ -72,7 +66,6 @@ public class ParkingTicketsStats {
     		int j = 0;
     		for (int c = 32 * 1024 * 1024; (c = parkingTicketsStream.read(data, a, c)) > 0; ) {
     			a += c;
-    			workItems.incrementAndGet();
     			i = j;
     			j = a;
     			if (a < available) {
@@ -99,7 +92,14 @@ public class ParkingTicketsStats {
     			}
     		}
 
-    		workItems.decrementAndGet();
+    		for (int t = 0; t < n; t++) {
+    			try {
+					byteArrayQueue.put(0L);
+				}
+    			catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+    		}
 
 	    	printInterval("Local initialization: read remaining of "+ a +" total bytes");
 
@@ -172,107 +172,73 @@ public class ParkingTicketsStats {
      * worker parallel worker takes blocks of bytes read and processes them
      */
     static final void worker() {
-		try {
-			String threadName = Thread.currentThread().getName();
-			Matcher nameMatcher = namePattern.matcher("");
+		String threadName = Thread.currentThread().getName();
+		Matcher nameMatcher = namePattern.matcher("");
 
-			// local access faster than volatile fields
-			byte[] data = ParkingTicketsStats.data;
+		// local access faster than volatile fields
+		byte[] data = ParkingTicketsStats.data;
 
-			final ArrayList<String> parts = new ArrayList<>();
-
-			int work = 0;
+		for (;;) {
+			Long block_start_end = null;
 			do {
-				Long ij = byteArrayQueue.poll(5, TimeUnit.MILLISECONDS);
-				if (ij != null) {
-					int i = (int) (ij >>> 32);
-					int j = (int) (long) ij;
-				//	println("Thread ["+ threadName +"] processing block("+ i +", "+ j +")");
+				try {
+					block_start_end = byteArrayQueue.poll(5, TimeUnit.MILLISECONDS);
+				}
+				catch (InterruptedException e) {
+					e.printStackTrace();
+					continue;
+				}
+			} while (block_start_end == null);
 
-					// process block
-					for (int m; i < j; i = m) {
-						// process a line
-						m = i;
-						while (m < j && data[m++] != (byte)'\n') {}
+			if (block_start_end == 0) {
+				break;
+			}
+			final int block_start = (int) (block_start_end >>> 32);
+			final int block_end = (int) (long)block_start_end;
 
-						parts.clear();
-						int k;
-						int c = 0;
-						do {
-							k = i;
-							while (k < m && data[k] != ',' && data[k] != '\n') { k++; }
-							if (c == 4 || c == 7) {
-								parts.add(new String(data, i, k - i));
-							} else {
-								parts.add(null);
-							}
-							c++;
-							i = k + 1;
-						} while (i < m);
+			// process block as fields
+			// save fields 4 (set_fine_amount) and 7 (location2)
+			int start = block_start;
+			int column = 0;
+			int fine = 0;
+			String location = null;
+			// process block
+			while (start < block_end) {
+				int end = start;
+				while (end < block_end && data[end] != ',' && data[end] != '\n') { end++; }
 
-			    		try {
-	//			    		String tag_number_masked = parts[0];
-	//			    		String date_of_infraction = parts[1];
-	//			    		String infraction_code = parts[2];
-	//			    		String infraction_description = parts[3];
-				    		String sfa = parts.get(4);
-				    		Integer set_fine_amount = 0;
-				    		try {
-					    		set_fine_amount = Integer.parseInt(sfa);
-				    		}
-				    		catch (NumberFormatException e) {
-				    			System.out.print(e.getClass().getSimpleName() +": "+ sfa);
-				    		}
-	//			    		String time_of_infraction = parts[5];
-	//			    		String location1 = parts[6];
-				    		String location2 = parts.get(7);
-	//			    		String location3 = parts[8];
-	//			    		String location4 = parts[9];
-				    		nameMatcher.reset(location2);
-				    		if (nameMatcher.find()) {
-				    			String l = nameMatcher.group();
-	//		    			streetMatcher.reset(location2);
-	//		    			if (streetMatcher.find()) {
-	//		    				String l = streetMatcher.group(2);
-			    			/*
-					    	//	l = l.replaceAll("[0-9]+", "");
-					    		l = l.replaceAll("[^A-Z]+ ", "");
-					    		l = l.replaceAll(" (N|NORTH|S|SOUTH|W|WEST|E|EAST)$", "");
-					    		l = l.replaceAll(" (AV|AVE|AVENUE|BLVD|CRES|COURT|CRT|DR|RD|ST|STR|STREET|WAY)$", "");
-					    	//	l = l.replaceAll("^(A|M) ", "");
-					    		l = l.replaceAll("(^| )(PARKING) .*$", "");
-					    		l = l.trim();
-				    		*/
-	//				    		String province = parts[10];
-				    			add(l, set_fine_amount);
-	
-	//			    			if (!l.equals("KING") && (location2.indexOf(" KING ") >= 0 || location2.endsWith(" KING"))) {
-	//			    				println(l +" <- "+ location2);
-	//			    			}
-			    			}
-			    			else {
-			    				if (location2.indexOf("KING") >= 0 && location2.indexOf("PARKING") == -1) {
-				    				println(""+ location2);
-			    				}
-			    			}
-			    		}
-			    		catch (ArrayIndexOutOfBoundsException e) {
-			    			println(e.getClass().getSimpleName() +": "+ parts);
-			    			e.printStackTrace();
-			    		}
+				if (column == 4) {
+		    		final String set_fine_amount = new String(data, start, end - start);
+		    		try {
+			    		fine = Integer.parseInt(set_fine_amount);
+		    		}
+		    		catch (final NumberFormatException e) {
+		    			System.out.print(e.getClass().getSimpleName() +": "+ set_fine_amount);
+		    		}
+				}
+				else if (column == 7) {
+					if (fine > 0) {
+						location = new String(data, start, end - start);
+
+			    		nameMatcher.reset(location);
+			    		if (nameMatcher.find()) {
+			    			final String name = nameMatcher.group();
+			    			add(name, fine);
+		    			}
 					}
-					work = workItems.decrementAndGet();
 				}
-				else {
-					work = workItems.get();
+
+				column++;
+				if (end < block_end && data[end] == '\n') {
+					fine = 0;
+					location = null;
+					column = 0;
 				}
-			//	println("Thread ["+ threadName +"] work remaining "+ work +" queued="+ byteArrayQueue.size());
-			} while (work > 0);
-			println(System.currentTimeMillis(), "Thread ["+ threadName +"] ending normally");
+				start = end + 1;
+			}
 		}
-		catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+
+		println(System.currentTimeMillis(), "Thread ["+ threadName +"] ending normally");
     }
 
 	public static int hash(final String k) {
@@ -293,12 +259,10 @@ public class ParkingTicketsStats {
 		int i = hash(k);
 		vals.addAndGet(i, d);
 
-//		String k0 = keys[i];
+		keys.compareAndSet(i, null, k);
+//		String k0 = keys.getAndSet(i, k);
 //		if (k0 != null && !k0.equals(k)) {
 //			println("Key hash clash: first "+ k0 +" and "+ k);
-//		}
-//		else {
-			keys.set(i, k);
 //		}
 	}
 	public static int get(final String k) {
