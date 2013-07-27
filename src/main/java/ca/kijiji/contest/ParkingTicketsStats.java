@@ -27,6 +27,9 @@ public class ParkingTicketsStats {
       container.setCompatVersion(CompatVersion.RUBY2_0);
       container.setInput(parkingTicketsStream);
 
+      //TODO: benchmark the JRuby environment setup time
+      //TODO: benchmark the translation phase
+
       // run the script to get the data
       String filename = Paths.get(System.getProperty("user.dir"), "src", "jruby", "parking_ticket_stats.rb").toString();
 
