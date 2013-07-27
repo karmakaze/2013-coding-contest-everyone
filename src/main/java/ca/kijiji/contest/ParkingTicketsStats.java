@@ -22,18 +22,22 @@ public class ParkingTicketsStats {
             String[] parkingTicketsLine = inputLine.split(",");
             String streetName = StreetClass.getStreetName(parkingTicketsLine[7]);
             
-
-            
-            //            System.out.println(parkingTicketsLine[4]+","+parkingTicketsLine[7]+"\n");
+            Integer currValue = parkingTickets.get(streetName);
+            if (currValue == null){
+                // no current element so add it
+                parkingTickets.put(streetName, new Integer(parkingTicketsLine[4]));
+            } else {
+                // current element exists so add to it
+                parkingTickets.put(streetName, currValue + new Integer(parkingTicketsLine[4]));
+            }
         }
 
         br.close();
-         
-        parkingTickets.put("KING", 2570710);
-        parkingTickets.put("ST CLAIR", 1871510);
-        parkingTickets.put("AAA", 3781095);
         
-        
+        //for (java.util.Map.Entry<String,Integer> entry : parkingTickets.entrySet()){
+        //    System.out.println(entry.getKey());
+        //}
+                
         return parkingTickets;
     }
     
