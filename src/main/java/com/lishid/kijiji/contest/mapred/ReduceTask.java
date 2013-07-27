@@ -3,7 +3,6 @@ package com.lishid.kijiji.contest.mapred;
 import java.util.List;
 import java.util.Map;
 
-import com.lishid.kijiji.contest.CommonCalculations;
 import com.lishid.kijiji.contest.mapred.MapTask.MapperResultCollector;
 
 public class ReduceTask extends MapReduceTask {
@@ -34,7 +33,7 @@ public class ReduceTask extends MapReduceTask {
                 resultCollector.result = mapperResult.partitionedResult.get(partition);
             }
             else {
-                CommonCalculations.reduce(mapperResult.partitionedResult.get(partition), resultCollector.result);
+                Algorithm.reduce(mapperResult.partitionedResult.get(partition), resultCollector.result);
             }
         }
     }

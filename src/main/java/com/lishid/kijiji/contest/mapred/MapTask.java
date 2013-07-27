@@ -5,9 +5,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import com.lishid.kijiji.contest.CommonCalculations;
-import com.lishid.kijiji.contest.CommonCalculations.MapResult;
+import com.lishid.kijiji.contest.mapred.Algorithm.MapResult;
 import com.lishid.kijiji.contest.util.CharArrayReader;
+import com.lishid.kijiji.contest.util.PseudoString;
 
 public class MapTask extends MapReduceTask {
     private static ThreadLocal<MapperResultCollector> perThreadResultCollector = new ThreadLocal<MapperResultCollector>();
@@ -42,16 +42,18 @@ public class MapTask extends MapReduceTask {
         MapperResultCollector localResultCollector = perThreadResultCollector.get();
         
         MapResult mapResult = new MapResult();
-        String line;
+        PseudoString line;
         while ((line = dataReader.readLine()) != null) {
             try {
-                CommonCalculations.map(line, mapResult);
-                String key = mapResult.key;
+                Algorithm.map(line, mapResult);
+                PseudoString key = mapResult.key;
                 int value = mapResult.value;
                 
-                localResultCollector.collect(key, value);
+                localResultCollector.collect(key.toString(), value);
             }
-            catch (Exception e) {}
+            catch (Exception e) {
+                // Ignore bad lines
+            }
         }
         recycler.offer(dataReader.getBuffer());
     }
@@ -65,15 +67,19 @@ public class MapTask extends MapReduceTask {
         }
         
         public void init() {
-            partitionedResult = new ArrayList<HashMap<String, Integer>>();
+            partitionedResult = new ArrayList<HashMap<String, Integer>>(partitions);
             for (int i = 0; i < partitions; i++) {
                 partitionedResult.add(new HashMap<String, Integer>());
             }
         }
         
         public void collect(String key, int value) {
-            int partition = CommonCalculations.getPartition(key.hashCode(), partitions);
-            CommonCalculations.combine(key, value, partitionedResult.get(partition));
+            int partition = getPartition(key.hashCode());
+            Algorithm.combine(key, value, partitionedResult.get(partition));
+        }
+        
+        private int getPartition(int hashCode) {
+            return ((hashCode % partitions) + partitions) % partitions;
         }
     }
 }

@@ -25,7 +25,7 @@ public class CharArrayReader {
      *         any line-termination characters, or null if the end of the
      *         char array has been reached
      */
-    public String readLine() {
+    public PseudoString readLine() {
         if (offset >= end) {
             return null;
         }
@@ -58,7 +58,7 @@ public class CharArrayReader {
             return readLine();
         }
         
-        return new String(buffer, startIndex, endIndex - startIndex);
+        return new PseudoString(buffer, startIndex, endIndex - startIndex);
     }
     
     /**

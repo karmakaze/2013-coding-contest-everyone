@@ -3,16 +3,16 @@ package com.lishid.kijiji.contest.mapred;
 import java.util.concurrent.ExecutorService;
 
 public class TaskTracker {
-    private ExecutorService executorService;
+    private ExecutorService threadPool;
     private int startedTasks;
     private int finishedTasks;
     private boolean waitingForWake;
     
     /**
-     * TaskTracker uses an ExecutorService to run MapReduceTask and provides an easy way of waiting until all tasks finish
+     * TaskTracker uses a fixed-size thread pool to run MapReduceTask and provides an easy way of waiting until all tasks finish
      */
-    public TaskTracker(ExecutorService executorService) {
-        this.executorService = executorService;
+    public TaskTracker(ExecutorService threadPool) {
+        this.threadPool = threadPool;
         reset();
     }
     
@@ -20,7 +20,7 @@ public class TaskTracker {
      * Shuts down the underlying executor service
      */
     public void shutdown() {
-        executorService.shutdown();
+        threadPool.shutdown();
     }
     
     /**
@@ -56,7 +56,7 @@ public class TaskTracker {
      */
     public void startTask(MapReduceTask task) {
         startedTasks++;
-        executorService.submit(task);
+        threadPool.submit(task);
     }
     
     /**

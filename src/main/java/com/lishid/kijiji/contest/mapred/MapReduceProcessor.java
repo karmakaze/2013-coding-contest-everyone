@@ -23,15 +23,19 @@ public class MapReduceProcessor {
     
     /** Recycle those large char arrays using a thread-safe object pool */
     private static final ConcurrentLinkedQueue<char[]> recycler = new ConcurrentLinkedQueue<char[]>();
-    long startTime = System.currentTimeMillis();
     
     /**
      * This implementation uses a technique similar to "MapReduce" to parallelize work by first performing independent
      * Map operations, then independent Reduce operations, and finally merging the result. <br>
-     * More information on each step are located at {@link MapTask#performTask()} and {@link ReduceTask#performTask()}
+     * More information on each step are located at {@link MapTask#performTask()} and {@link ReduceTask#performTask()} <br>
+     * <br>
+     * An optimization technique used here is avoiding the use of String operations as much as possible since it
+     * creates temporary char[], which can be optimized by reusing the same char[] the buffered reading process used.
      */
     public SortedMap<String, Integer> sortStreetsByProfitability(InputStream inputStream) throws Exception {
+        
         TaskTracker taskTracker = new TaskTracker(Executors.newFixedThreadPool(AVAILABLE_CORES));
+        
         List<MapperResultCollector> mapperResults = map(taskTracker, inputStream);
         List<ReducerResultCollector> reducerResults = reduce(taskTracker, mapperResults);
         
@@ -39,17 +43,26 @@ public class MapReduceProcessor {
         
         SortedMap<String, Integer> result = merge(reducerResults);
         
+        // File out = new File("C:\\Users\\lishid\\Desktop\\output.csv");
+        // out.createNewFile();
+        // PrintStream outPrintStream = new PrintStream(out);
+        // for (Entry<String, Integer> road : result.entrySet()) {
+        // outPrintStream.println(road.getKey() + ": " + road.getValue());
+        // }
+        // outPrintStream.close();
+        // System.out.println(result.size());
+        
         return result;
     }
     
     private List<MapperResultCollector> map(TaskTracker taskTracker, InputStream inputStream) throws Exception {
-        startTime = System.currentTimeMillis();
         List<MapperResultCollector> resultCollectors = new ArrayList<MapperResultCollector>();
-        // Side note here, the inputstream contains 228304949 bytes, 228304515 chars
+        // Side note here, the inputstream contains 228304949 bytes, 228304515 chars. The file seems to be in ASCII though
         
         // Read the stream in large chunks. Individual line splitting will be done
         // on worker threads so as to parallelize as much work as possible
         LargeChunkReader reader = new LargeChunkReader(new InputStreamAsciiReader(inputStream));
+        long startTime = System.currentTimeMillis();
         int read = 1;
         while (read > 0) {
             char[] buffer = recycler.poll();
@@ -68,11 +81,9 @@ public class MapReduceProcessor {
             }
         }
         reader.close();
+        System.out.println("IO Took: " + (System.currentTimeMillis() - startTime));
         
-        System.out.println("Map dispatched " + (System.currentTimeMillis() - startTime));
         taskTracker.waitForTasksAndReset();
-        System.out.println("Map done " + (System.currentTimeMillis() - startTime));
-        // System.out.println(recycler.size());
         
         List<MapperResultCollector> validResults = new ArrayList<MapperResultCollector>();
         for (MapperResultCollector collector : resultCollectors) {
@@ -97,10 +108,15 @@ public class MapReduceProcessor {
     }
     
     private SortedMap<String, Integer> merge(List<ReducerResultCollector> input) {
-        SortedMap<String, Integer> sortedResult = new ParkingTicketTreeMap(input.get(0).result);
+        SortedMap<String, Integer> sortedResult = null;
         
         for (int i = 1; i < input.size(); i++) {
-            sortedResult.putAll(input.get(i).result);
+            if (sortedResult == null) {
+                sortedResult = new ParkingTicketTreeMap(input.get(i).result);
+            }
+            else {
+                sortedResult.putAll(input.get(i).result);
+            }
         }
         
         return sortedResult;

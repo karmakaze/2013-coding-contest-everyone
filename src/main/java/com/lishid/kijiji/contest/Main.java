@@ -9,7 +9,7 @@ import ca.kijiji.contest.ParkingTicketsStats;
 public class Main {
     public static void main(String[] args) throws Exception {
         // For profilers
-//        System.in.read();
+        System.in.read();
         
         int totalTime = 0;
         int runTimes = 10;
