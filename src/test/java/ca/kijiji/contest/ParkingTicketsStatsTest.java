@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
+import java.util.Map;
 import java.util.SortedMap;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -46,6 +47,7 @@ public class ParkingTicketsStatsTest {
         assertThat(streets.get("KING"), closeTo(2570710));
         assertThat(streets.get("ST CLAIR"), closeTo(1871510));
         assertThat(streets.get(streets.firstKey()), closeTo(3781095));
+
     }
 
     private Matcher<Integer> closeTo(int num) {

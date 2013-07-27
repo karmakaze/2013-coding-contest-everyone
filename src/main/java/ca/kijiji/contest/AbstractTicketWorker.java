@@ -79,6 +79,7 @@ abstract class AbstractTicketWorker extends Thread {
                 // Split the ticket into columns, this isn't CSV compliant and will
                 // fail on columns with escaped values. There's less than 100 of those
                 // in the test data, so do it the quick way unless something goes wrong.
+                // This takes us from 11000ms down to around 3900ms.
                 String[] ticketCols = StringUtils.splitPreserveAllTokens(message, ',');
 
                 // Is this line properly formed? (This check will fail on valid CSVs

@@ -1,6 +1,5 @@
 package ca.kijiji.contest;
 
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -14,12 +13,12 @@ class StreetProfitTabulator extends AbstractTicketWorker {
     private static final Logger LOG = LoggerFactory.getLogger(StreetProfitTabulator.class);
 
     // street name -> profit map
-    private final ConcurrentHashMap<String, AtomicInteger> _mStreetStats;
+    private final StreetProfitMap _mStreetStats;
     // Normalized name cache, makes it complete around 30% faster on my PC.
     private final StreetNameResolver _mStreetNameResolver;
 
     public StreetProfitTabulator(CountDownLatch runCounter, LinkedBlockingQueue<String> queue, AtomicInteger errCounter,
-                                 ConcurrentHashMap<String, AtomicInteger> statsMap, StreetNameResolver nameCacheMap) {
+                                 StreetProfitMap statsMap, StreetNameResolver nameCacheMap) {
         super(runCounter, errCounter, queue);
         _mStreetStats = statsMap;
 
@@ -48,44 +47,21 @@ class StreetProfitTabulator extends AbstractTicketWorker {
             Integer fine = Ints.tryParse(getColumn(ticketCols, "set_fine_amount"));
 
             if(fine != null) {
-                addFineTo(streetName, fine);
+                _mStreetStats.addFineTo(streetName, fine);
             } else {
+                // Welp, looks like there was something weird in the fine field.
                 mErrCounter.getAndIncrement();
             }
         } else {
             // There are plenty of funky looking addresses in the CSV, they're really not exceptional.
-            // Just make a note of whatever weirdness we get and ignore it.
+            // Just make a note of whatever weirdness we get.
 
             mErrCounter.getAndIncrement();
 
             // I don't know what it is about log4j's appenders, but printing 50 of these
-            // adds 300+ ms of latency. Only print them if we're debugging.
-            LOG.debug(String.format("Couldn't parse address: %s", address));
+            // adds 300+ ms of latency. Still, it's probably more important to let people
+            // know that their data's all jacked up.
+            LOG.warn(String.format("Couldn't parse address: %s", address));
         }
-    }
-
-    /**
-     * Add to the profit total for streetName
-     * @param streetName street the infraction occurred on
-     * @param fine fine to add to the street's total profit
-     */
-    protected void addFineTo(String streetName, int fine) {
-        // Look for the map entry for this street's profits
-        AtomicInteger profitTracker = _mStreetStats.get(streetName);
-
-        // Alright, couldn't find an existing profit tracker. We can't avoid locking now. Try putting one in,
-        // or if someone else puts one in before us, use that.
-        if(profitTracker == null) {
-            final AtomicInteger newProfitTracker = new AtomicInteger(0);
-            profitTracker = _mStreetStats.putIfAbsent(streetName, newProfitTracker);
-
-            // Nobody tried inserting one before we did, use the one we just inserted.
-            if(profitTracker == null) {
-                profitTracker = newProfitTracker;
-            }
-        }
-
-        // Add it to the total for this street
-        profitTracker.getAndAdd(fine);
     }
 }

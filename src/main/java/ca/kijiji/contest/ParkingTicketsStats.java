@@ -54,7 +54,7 @@ public class ParkingTicketsStats {
         // Normalized name cache, makes it complete around 30% faster on my PC.
         StreetNameResolver streetNameResolver = new StreetNameResolver();
         // Map of street name -> total profit
-        ConcurrentHashMap<String, AtomicInteger> stats = new ConcurrentHashMap<>();
+        StreetProfitMap stats = new StreetProfitMap();
 
         // Get the number of cores (not counting the one used by the main thread)
         int freeCores = Runtime.getRuntime().availableProcessors() - 1;
@@ -76,7 +76,7 @@ public class ParkingTicketsStats {
 
 
         // Parse out the column header
-        String[] csvCols = StringUtils.splitPreserveAllTokens(parkingCsvReader.readLine(), ',');
+        String[] csvCols = CSVUtils.parseCSVLine(parkingCsvReader.readLine());
 
         // Dispatch using a ThreadPool and Runnable for each entry was 2 times slower than manually
         // handling task dispatch, slower than the non-threaded version! Manually manage work dispatch
@@ -91,7 +91,7 @@ public class ParkingTicketsStats {
         }
 
         // Keep sending lines to workers til we hit EOF. It's not valid to read CSVs this way
-        // according to the spec, but none of the columns contain escaped newlines.
+        // according to the spec, but none of the columns contain escaped newlines and none should.
         String parkingTicketLine;
         while((parkingTicketLine = parkingCsvReader.readLine()) != null) {
             messageQueue.put(parkingTicketLine);
@@ -128,7 +128,7 @@ public class ParkingTicketsStats {
      * @param multiplier multiplier to apply to the total for each street
      * @return A sorted and immutable map of profit stats
      */
-    private static SortedMap<String, Integer> _finalizeStatsMap(Map<String, ? extends Number> stats, int multiplier) {
+    private static SortedMap<String, Integer> _finalizeStatsMap(StreetProfitMap stats, int multiplier) {
 
         // Order by profit, descending
         // This isn't as straightforward as it would normally be as I've used AtomicIntegers instead of Integers
@@ -140,18 +140,10 @@ public class ParkingTicketsStats {
                     }
                 }).reverse();
 
-        // Don't complain about generic array operations in the next statement
-        @SuppressWarnings("unchecked")
-        // Convert the map's entries to an array
-        Map.Entry<String, ? extends Number>[] sortedStatsSet = Iterables.toArray(stats.entrySet(), Map.Entry.class);
-
-        // Sort the array by the total profit for each entry
-        Arrays.sort(sortedStatsSet, entryOrdering);
-
         // Put the keys in sortedKeyOrder in order of the value of their associated entry
-        List<String> sortedKeyOrder = new ArrayList<>(sortedStatsSet.length);
+        List<String> sortedKeyOrder = new ArrayList<>(stats.size());
 
-        for (Map.Entry<String, ? extends Number> entry : sortedStatsSet) {
+        for (Map.Entry<String, ? extends Number> entry : entryOrdering.sortedCopy(stats.entrySet())) {
             sortedKeyOrder.add(entry.getKey());
         }
 
@@ -164,7 +156,7 @@ public class ParkingTicketsStats {
 
         // Convert the totals to normal ints and apply the multiplier to the totals
         // to arrive at our best guess of the total profit for each street
-        for (Map.Entry<String, ? extends Number> entry : sortedStatsSet) {
+        for (Map.Entry<String, ? extends Number> entry : stats.entrySet()) {
             builder.put(entry.getKey(), entry.getValue().intValue() * multiplier);
         }
 
