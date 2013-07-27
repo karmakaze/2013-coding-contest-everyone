@@ -26,8 +26,8 @@ public class ParkingTagData {
 		// Using Canada Post's Find a Postal Code page as a rough reference for address components
 		
 		final String streetNumberPatternString = "([\\d]*)";
-		final String streetNamePatternString = "([a-zA-Z ]+)";
-		final String streetTypePatternString = "(AV|AVE|BLVD|CIR|CT|CRT|DR|GARDENS|GDNS|PARKWAY|PL|RD|ST|TER|WAY)";
+		final String streetNamePatternString = "([a-zA-Z ']+)";
+		final String streetTypePatternString = "(AV|AVE|BLVD|CIR|CT|CRT|CRES|DR|GARDENS|GDNS|HTS|PARKWAY|PL|RD|ST|TER|WAY)";
 		final String streetDirectionPatternString = "([NESW]?)";
 		
 		final Pattern locationPattern = Pattern.compile(
