@@ -1,4 +1,5 @@
 # see https://github.com/jruby/jruby/wiki/ConfiguringJRuby
 compat.version=2.0
 bytecode.version=1.7
-
+compile.invokedynamic=true
+jit.threshold=5

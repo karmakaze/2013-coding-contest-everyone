@@ -23,9 +23,13 @@ public class ParkingTicketsStats {
    public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
       // set up the JRuby environment
       // details on configuration options: https://github.com/jruby/jruby/wiki/RedBridge
+      long t0 = System.currentTimeMillis();
+
       ScriptingContainer container = new ScriptingContainer(LocalContextScope.THREADSAFE);
       container.setCompatVersion(CompatVersion.RUBY2_0);
       container.setInput(parkingTicketsStream);
+
+      System.out.format("Scripting container built in %dms\n", System.currentTimeMillis() - t0);
 
       //TODO: benchmark the JRuby environment setup time
       //TODO: benchmark the translation phase
@@ -34,6 +38,8 @@ public class ParkingTicketsStats {
       String filename = Paths.get(System.getProperty("user.dir"), "src", "jruby", "parking_ticket_stats.rb").toString();
 
       Map<?,?> map = (Map<?,?>) container.runScriptlet(PathType.ABSOLUTE, filename);
+
+      t0 = System.currentTimeMillis();
 
       // translate the result to the format expected by the test suite
       SortedMap<String, Integer> result = new TreeMap<String, Integer>(new ValueComparator(map));
@@ -44,6 +50,8 @@ public class ParkingTicketsStats {
 
          result.put( key, (int)value.get() );
       }
+
+      System.out.format("Sorted map built in %dms\n", System.currentTimeMillis() - t0);
 
       // return the translated result
       return result;

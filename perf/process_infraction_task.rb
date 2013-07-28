@@ -16,12 +16,12 @@ LINE = "***68492,20120101,192,STAND SIGNED TRANSIT STOP,60,0014,W/S,PARLIAMENT S
 Benchmark.bmbm do |x|
 
    x.report("#new") do
-      10_000.times { ProcessInfractionTask.new(LINE, TASK, 0) }
+      2_500_000.times { ProcessInfractionTask.new(LINE, TASK, 0) }
    end
 
    x.report("#run") do
       task = ProcessInfractionTask.new(LINE, TASK, 0)
-      10_000.times { task.run }
+      2_500_000.times { task.run }
    end
    
 end

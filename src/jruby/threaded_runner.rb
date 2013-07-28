@@ -2,57 +2,34 @@ require 'process_infraction_task'
 
 class ThreadedRunner
 
-   def initialize(io, task, error_handler: IgnoreHandler.new, pool_size: 4, timeout: 600, buffer_size: 512 * 1024)
-      @io = io
+   GroupCount = 1000
+
+   def initialize(reader, task, pool_size: 4, timeout: 600, error_handler: IgnoreHandler.new)
+      @reader = reader
       @task = task
       @pool_size = pool_size
       @timeout = timeout
       @error_handler = error_handler
-      @buffer_size = buffer_size
    end
 
    def run!
       start = Time.now.to_f
 
-      # throw away the first line
-      @io.readline
+      tasks = Array.new(GroupCount)
+      idx = 0
 
-      row = 1
+      @reader.each_with_index do |line, row|
+         tasks[idx] = ProcessInfractionTask.new(line, @task, row)
 
-      # run through each line, parse it and pass it on to the subclass to handle it
-      buffer = ''
-
-      until @io.eof?
-         buffer << @io.read(@buffer_size)
-
-         p0 = 0
-         p1 = 0
-
-         tasks = []
-
-         while p1 = buffer.index("\r\n", p0)
-            line = buffer[p0..p1-1]
-
-            p0 = p1 + 2
-
-            row += 1
-
-            tasks << ProcessInfractionTask.new(line, @task, row)
-
-            # puts line.inspect
-
-            # @progress.call(row) if @progress
+         if idx == GroupCount - 1
+            emit(tasks)
+            idx = 0
+         else
+            idx += 1
          end
-
-         emit(tasks)
-
-         # slice off everything that was already read
-         puts "slice: 0..#{p0}"
-         #buffer.slice!(0..p0)
-         buffer = buffer[p0..-1]
       end
 
-      @io.close
+      emit(tasks) if tasks.any?
 
       final = Time.now.to_f
 
@@ -61,16 +38,6 @@ class ThreadedRunner
       shutdown!
 
       STDOUT.puts "Queue shut down after another #{Time.now.to_f - final} seconds"
-
-      @done.call(row) if @done
-   end
-
-   def progress(&block)
-      @progress = block
-   end
-
-   def done(&block)
-      @done = block
    end
 
 private
@@ -93,7 +60,7 @@ private
       end
 
       def run
-         @tasks.each(&:run)
+         @tasks.each {|t| t.run if t }
       end
    end
 
@@ -104,7 +71,7 @@ private
    end
 
    def emit(tasks)
-      pool.submit TaskGroupHandler.new(tasks)
+      pool.submit TaskGroupHandler.new(tasks.dup)
    end
 
    # stop accepting submissions and wait up to 10 seconds for the worker

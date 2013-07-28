@@ -4,19 +4,14 @@ $:.unshift File.expand_path(File.dirname(__FILE__))
 require 'threaded_runner'
 require 'threadsafe_group_counter'
 require 'summarize_fines_by_street_name'
+require 'chunked_io_line_reader'
 
-$counter = ThreadsafeGroupCounter.new
+counter = ThreadsafeGroupCounter.new
 
-runner = ThreadedRunner.new(STDIN, SummarizeFinesByStreetName.new($counter), pool_size: 8, timeout: 1200)
+reader = ChunkedIoLineReader.new(STDIN)
 
-runner.done do |row|
-   STDERR.puts "\ndone (row=#{row})"
-
-   open("results.txt", "w+") do |f|
-      $counter.sort_by(&:last).reverse.each {|k, v| f.puts "#{k}: #{v}" }
-   end
-end
+runner = ThreadedRunner.new(reader, SummarizeFinesByStreetName.new(counter), pool_size: 8)
 
 runner.run!
 
-$counter.map
+counter.map
