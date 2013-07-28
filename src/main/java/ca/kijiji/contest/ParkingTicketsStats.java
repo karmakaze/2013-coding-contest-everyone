@@ -22,6 +22,10 @@ public class ParkingTicketsStats {
             String[] parkingTicketsLine = inputLine.split(",");
             String streetName = StreetClass.getStreetName(parkingTicketsLine[7]);
             
+            if (streetName.equals("")) {
+                continue;
+            }
+            
             Integer currValue = parkingTickets.get(streetName);
             if (currValue == null){
                 // no current element so add it
@@ -34,11 +38,11 @@ public class ParkingTicketsStats {
 
         br.close();
         
-        //for (java.util.Map.Entry<String,Integer> entry : parkingTickets.entrySet()){
-        //    System.out.println(entry.getKey());
-        //}
+        // now that i have the sorted by key map I now need to make the sorted by value map.
+        SortedMap valueMap = new TreeMap(new ValueComparator(parkingTickets));
+        valueMap.putAll(parkingTickets);
                 
-        return parkingTickets;
+        return valueMap;
     }
     
 }
