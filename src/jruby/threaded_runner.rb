@@ -1,13 +1,12 @@
 require 'process_infraction_task'
 
-class ThreadedRunner
+class ThreadedRunner   
 
-   GroupCount = 1000
-
-   def initialize(reader, task, pool_size: 4, timeout: 600, error_handler: IgnoreHandler.new)
+   def initialize(reader, task, pool_size: 4, batch_size: 1000, timeout: 600, error_handler: IgnoreHandler.new)
       @reader = reader
       @task = task
       @pool_size = pool_size
+      @batch_size = batch_size
       @timeout = timeout
       @error_handler = error_handler
    end
@@ -15,13 +14,13 @@ class ThreadedRunner
    def run!
       start = Time.now.to_f
 
-      tasks = Array.new(GroupCount)
+      tasks = Array.new(@batch_size)
       idx = 0
 
       @reader.each_with_index do |line, row|
          tasks[idx] = ProcessInfractionTask.new(line, @task, row)
 
-         if idx == GroupCount - 1
+         if idx == @batch_size - 1
             emit(tasks)
             idx = 0
          else
