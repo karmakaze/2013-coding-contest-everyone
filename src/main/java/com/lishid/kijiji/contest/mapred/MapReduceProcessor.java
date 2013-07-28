@@ -4,12 +4,10 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.lishid.kijiji.contest.mapred.MapTask.MapperResultCollector;
 import com.lishid.kijiji.contest.mapred.ReduceTask.ReducerResultCollector;
-import com.lishid.kijiji.contest.util.CharArrayReader;
-import com.lishid.kijiji.contest.util.InputStreamAsciiReader;
+import com.lishid.kijiji.contest.util.ByteArrayReader;
 import com.lishid.kijiji.contest.util.LargeChunkReader;
 import com.lishid.kijiji.contest.util.ParkingTicketTreeMap;
 
@@ -17,11 +15,9 @@ public class MapReduceProcessor {
     
     // Tweakable variables
     private static final int AVAILABLE_CORES = Runtime.getRuntime().availableProcessors();
-    private static final int MAPPER_CHUNK_SIZE = 1 << 20; // 2097152 (seemed like the best value on my setup)
+    // private static final int AVAILABLE_CORES = 4;
+    private static final int MAPPER_CHUNK_SIZE = 1 << 18; // 2097152 (seemed like the best value on my setup)
     private static final int PARTITIONS = AVAILABLE_CORES;
-    
-    /** Recycle those large char arrays using a thread-safe object pool */
-    private static final ConcurrentLinkedQueue<char[]> recycler = new ConcurrentLinkedQueue<char[]>();
     
     /**
      * This implementation uses a technique similar to "MapReduce" to parallelize work by first performing independent
@@ -29,7 +25,10 @@ public class MapReduceProcessor {
      * More information on each step are located at {@link MapTask#performTask()} and {@link ReduceTask#performTask()} <br>
      * <br>
      * An optimization technique used here is avoiding the use of String operations as much as possible since it
-     * creates temporary char[], which can be optimized by reusing the same char[] the buffered reading process used.
+     * allocates temporary char[], which can be optimized by reusing the same char[] the buffered reading process used. <br>
+     * <br>
+     * In fact, after optimizing even more, it is obvious that object allocation reduction is key to eliminate slow speeds.
+     * From this idea, MutableInteger is created to combat the issue where HashMap values of Integer are continuously created.
      */
     public SortedMap<String, Integer> sortStreetsByProfitability(InputStream inputStream) throws Exception {
         TaskTracker taskTracker = new TaskTracker(AVAILABLE_CORES - 1);
@@ -39,7 +38,7 @@ public class MapReduceProcessor {
         
         taskTracker.shutdown();
         
-        SortedMap<String, Integer> result = merge(reducerResults);
+        SortedMap<String, Integer> result = mergeAndSort(reducerResults);
         
         // File out = new File("C:\\Users\\lishid\\Desktop\\output.csv");
         // out.createNewFile();
@@ -59,30 +58,25 @@ public class MapReduceProcessor {
         
         // Read the stream in large chunks. Individual line splitting will be done
         // on worker threads so as to parallelize as much work as possible
-        LargeChunkReader reader = new LargeChunkReader(new InputStreamAsciiReader(inputStream));
+        LargeChunkReader reader = new LargeChunkReader(inputStream);
         long startTime = System.currentTimeMillis();
         int read = 1;
         while (read > 0) {
-            char[] buffer = recycler.poll();
-            if (buffer == null) {
-                buffer = new char[MAPPER_CHUNK_SIZE];
-            }
+            byte[] buffer = new byte[MAPPER_CHUNK_SIZE];
             read = reader.readChunk(buffer);
             if (read > 0) {
-                CharArrayReader charArrayReader = new CharArrayReader(buffer, 0, read);
-                MapTask task = new MapTask(taskTracker, recycler, charArrayReader, PARTITIONS);
+                ByteArrayReader arrayReader = new ByteArrayReader(buffer, 0, read);
+                MapTask task = new MapTask(taskTracker, arrayReader, PARTITIONS);
                 taskTracker.startTask(task);
                 resultCollectors.add(task.getFutureResult());
             }
-            else {
-                recycler.offer(buffer);
-            }
         }
-        reader.close();
         taskTracker.setThreads(AVAILABLE_CORES);
+        reader.close();
         System.out.println("IO Took: " + (System.currentTimeMillis() - startTime));
         
         taskTracker.waitForTasksAndReset();
+        System.out.println("Map took: " + (System.currentTimeMillis() - startTime));
         
         List<MapperResultCollector> validResults = new ArrayList<MapperResultCollector>();
         for (MapperResultCollector collector : resultCollectors) {
@@ -106,7 +100,7 @@ public class MapReduceProcessor {
         return resultCollectors;
     }
     
-    private SortedMap<String, Integer> merge(List<ReducerResultCollector> input) {
+    private SortedMap<String, Integer> mergeAndSort(List<ReducerResultCollector> input) {
         SortedMap<String, Integer> sortedResult = null;
         
         for (int i = 0; i < input.size(); i++) {

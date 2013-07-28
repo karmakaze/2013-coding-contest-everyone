@@ -1,7 +1,7 @@
 package com.lishid.kijiji.contest.util;
 
 import java.io.IOException;
-import java.io.Reader;
+import java.io.InputStream;
 
 /**
  * Used to read large chunks from a Reader and splitting the output at line terminators.
@@ -10,12 +10,12 @@ import java.io.Reader;
  */
 public class LargeChunkReader {
     /** Used to store the end of the last chunk of chars */
-    private char[] chunkBuffer;
+    private byte[] chunkBuffer;
     private int chunkBufferSize;
     
-    private Reader input;
+    private InputStream input;
     
-    public LargeChunkReader(Reader input) {
+    public LargeChunkReader(InputStream input) {
         this.input = input;
     }
     
@@ -27,7 +27,7 @@ public class LargeChunkReader {
      * @return The number of characters read, or -1 if the end of the stream has been reached
      * @throws IOException
      */
-    public int readChunk(char[] buffer) throws IOException {
+    public int readChunk(byte[] buffer) throws IOException {
         int bufferIndex = 0;
         
         if (chunkBuffer != null && chunkBufferSize > 0) {
@@ -72,7 +72,7 @@ public class LargeChunkReader {
         chunkBufferSize = bufferIndex - newLineIndex - newLineChars;
         
         if (chunkBuffer == null || chunkBuffer.length < chunkBufferSize) {
-            chunkBuffer = new char[chunkBufferSize];
+            chunkBuffer = new byte[chunkBufferSize];
         }
         
         System.arraycopy(buffer, newLineIndex + newLineChars, chunkBuffer, 0, chunkBufferSize);
@@ -80,7 +80,7 @@ public class LargeChunkReader {
         return newLineIndex;
     }
     
-    private int readUntilFull(char[] buffer, int startIndex) throws IOException {
+    private int readUntilFull(byte[] buffer, int startIndex) throws IOException {
         int read = 0;
         while (startIndex < buffer.length) {
             int numRead = input.read(buffer, startIndex, buffer.length - startIndex);

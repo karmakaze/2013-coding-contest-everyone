@@ -1,9 +1,13 @@
 package com.lishid.kijiji.contest.mapred;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import com.lishid.kijiji.contest.mapred.MapTask.MapperResultCollector;
+import com.lishid.kijiji.contest.util.MutableInteger;
+import com.lishid.kijiji.contest.util.MutableString;
 
 public class ReduceTask extends MapReduceTask {
     List<MapperResultCollector> mapperResults;
@@ -27,14 +31,18 @@ public class ReduceTask extends MapReduceTask {
      */
     @Override
     public void performTask() throws Exception {
-        resultCollector.result = null;
+        Map<MutableString, MutableInteger> result = null;
         for (MapperResultCollector mapperResult : mapperResults) {
-            if (resultCollector.result == null) {
-                resultCollector.result = mapperResult.partitionedResult.get(partition);
+            if (result == null) {
+                result = mapperResult.partitionedResult[partition];
             }
             else {
-                Algorithm.reduce(mapperResult.partitionedResult.get(partition), resultCollector.result);
+                Algorithm.reduce(mapperResult.partitionedResult[partition], result);
             }
+        }
+        resultCollector.result = new HashMap<String, Integer>();
+        for (Entry<MutableString, MutableInteger> entry : result.entrySet()) {
+            resultCollector.result.put(entry.getKey().toString(), entry.getValue().value);
         }
     }
     

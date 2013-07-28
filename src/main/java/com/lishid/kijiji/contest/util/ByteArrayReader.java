@@ -5,16 +5,19 @@ package com.lishid.kijiji.contest.util;
  * 
  * @author lishid
  */
-public class CharArrayReader {
-    private char[] buffer;
+public class ByteArrayReader {
+    private byte[] buffer;
     private int offset = 0;
     private int end;
     
-    public CharArrayReader(char[] buffer, int offset, int length) {
+    public ByteArrayReader(byte[] buffer, int offset, int length) {
         this.buffer = buffer;
         this.offset = offset;
         this.end = offset + length;
     }
+
+    private static byte CR = '\r';
+    private static byte LF = '\n';
     
     /**
      * Reads a line of text. A line is considered to be terminated by any one
@@ -25,7 +28,7 @@ public class CharArrayReader {
      *         any line-termination characters, or null if the end of the
      *         char array has been reached
      */
-    public PseudoString readLine() {
+    public MutableString readLine() {
         if (offset >= end) {
             return null;
         }
@@ -34,11 +37,11 @@ public class CharArrayReader {
         int endIndex;
         boolean foundCR = false;
         for (endIndex = startIndex; endIndex < end; endIndex++) {
-            char c = buffer[endIndex];
-            if (c == '\r') {
+            byte c = buffer[endIndex];
+            if (c == CR) {
                 foundCR = true;
             }
-            else if (c == '\n') {
+            else if (c == LF) {
                 offset = endIndex + 1;
                 break;
             }
@@ -58,7 +61,7 @@ public class CharArrayReader {
             return readLine();
         }
         
-        return new PseudoString(buffer, startIndex, endIndex - startIndex);
+        return new MutableString(buffer, startIndex, endIndex - startIndex);
     }
     
     /**
@@ -66,7 +69,7 @@ public class CharArrayReader {
      * 
      * @return the underlying buffer
      */
-    public char[] getBuffer() {
+    public byte[] getBuffer() {
         return buffer;
     }
 }

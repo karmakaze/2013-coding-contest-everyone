@@ -1,23 +1,19 @@
 package com.lishid.kijiji.contest.mapred;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.lishid.kijiji.contest.mapred.Algorithm.MapResult;
-import com.lishid.kijiji.contest.util.CharArrayReader;
-import com.lishid.kijiji.contest.util.PseudoString;
+import com.lishid.kijiji.contest.util.ByteArrayReader;
+import com.lishid.kijiji.contest.util.MutableInteger;
+import com.lishid.kijiji.contest.util.MutableString;
 
 public class MapTask extends MapReduceTask {
     private static ThreadLocal<MapperResultCollector> perThreadResultCollector = new ThreadLocal<MapperResultCollector>();
-    private ConcurrentLinkedQueue<char[]> recycler;
-    private CharArrayReader dataReader;
+    private ByteArrayReader dataReader;
     private MapperResultCollector resultCollector;
     
-    public MapTask(TaskTracker taskTracker, ConcurrentLinkedQueue<char[]> recycler, CharArrayReader dataReader, int partitions) {
+    public MapTask(TaskTracker taskTracker, ByteArrayReader dataReader, int partitions) {
         super(taskTracker);
-        this.recycler = recycler;
         this.dataReader = dataReader;
         resultCollector = new MapperResultCollector(partitions);
     }
@@ -42,24 +38,30 @@ public class MapTask extends MapReduceTask {
         MapperResultCollector localResultCollector = perThreadResultCollector.get();
         
         MapResult mapResult = new MapResult();
-        PseudoString line;
+        MutableString line;
+        MutableInteger recyclableInteger = null;
         while ((line = dataReader.readLine()) != null) {
             try {
                 Algorithm.map(line, mapResult);
-                PseudoString key = mapResult.key;
+                MutableString key = mapResult.key;
                 int value = mapResult.value;
-                
-                localResultCollector.collect(key.toString(), value);
+                if (recyclableInteger == null) {
+                    recyclableInteger = new MutableInteger(value);
+                }
+                else {
+                    recyclableInteger.useAsNewInteger(value);
+                }
+                recyclableInteger = localResultCollector.collect(key, recyclableInteger);
             }
             catch (Exception e) {
+                recyclableInteger = null;
                 // Ignore bad lines
             }
         }
-        recycler.offer(dataReader.getBuffer());
     }
     
     public static class MapperResultCollector {
-        public List<HashMap<String, Integer>> partitionedResult;
+        public MapperResultPartition[] partitionedResult;
         private int partitions;
         
         public MapperResultCollector(int partitions) {
@@ -67,19 +69,27 @@ public class MapTask extends MapReduceTask {
         }
         
         public void init() {
-            partitionedResult = new ArrayList<HashMap<String, Integer>>(partitions);
+            partitionedResult = new MapperResultPartition[partitions];
             for (int i = 0; i < partitions; i++) {
-                partitionedResult.add(new HashMap<String, Integer>());
+                partitionedResult[i] = new MapperResultPartition(16384);
             }
         }
         
-        public void collect(String key, int value) {
+        public MutableInteger collect(MutableString key, MutableInteger value) {
             int partition = getPartition(key.hashCode());
-            Algorithm.combine(key, value, partitionedResult.get(partition));
+            return Algorithm.combine(key, value, partitionedResult[partition]);
         }
         
-        private int getPartition(int hashCode) {
-            return ((hashCode % partitions) + partitions) % partitions;
+        private int getPartition(int input) {
+            return Math.abs(input) % partitions;
+        }
+    }
+    
+    private static class MapperResultPartition extends HashMap<MutableString, MutableInteger> {
+        private static final long serialVersionUID = 1L;
+        
+        public MapperResultPartition(int defaultSize) {
+            super(defaultSize);
         }
     }
 }
