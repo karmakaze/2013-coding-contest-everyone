@@ -22,7 +22,7 @@ public class ParkingTicketsStats {
 	static final int MASK = SIZE - 1;
 	static final String[] keys = new String[SIZE];
 	static final AtomicIntegerArray vals = new AtomicIntegerArray(SIZE);
-	static volatile byte[] data;
+	static final byte[] data = new byte[4 * 1024 * 1024];
 
 	static final Pattern namePattern = Pattern.compile("([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)");
 
@@ -53,17 +53,16 @@ public class ParkingTicketsStats {
 				};
 			}
 
-    		data = new byte[available];
-
     		for (Thread t : workers) {
 	    		t.start();
     		}
 
+    		int read_start = 0;
     		int read_end = 0;
     		int block_start = 0;
     		int block_end = 0;
-    		for (int read_amount = 1024 * 1024; (read_amount = parkingTicketsStream.read(data, read_end, read_amount)) > 0; ) {
-    			read_end += read_amount;
+    		for (int read_amount = 1024 * 1024; (read_amount = parkingTicketsStream.read(data, read_start, read_amount)) > 0; ) {
+    			read_end = read_start + read_amount;
     			block_start = block_end;
     			block_end = read_end;
 
@@ -100,6 +99,15 @@ public class ParkingTicketsStats {
 
     			if (available - read_end < read_amount) {
     				read_amount = available - read_end;
+    			}
+
+    			read_start = read_end;
+    			if (read_start + read_amount > data.length) {
+    				System.arraycopy(data, block_end, data, 0, read_end - block_end);
+    				read_start = read_end - block_end;
+    				read_end = read_start;
+    				block_start = 0;
+    				block_end =
     			}
     		}
 
@@ -162,9 +170,6 @@ public class ParkingTicketsStats {
      */
     static final void worker() {
 		Matcher nameMatcher = namePattern.matcher("");
-
-		// local access faster than volatile fields
-		final byte[] data = ParkingTicketsStats.data;
 
 		for (;;) {
 			int[] block_start_end;
