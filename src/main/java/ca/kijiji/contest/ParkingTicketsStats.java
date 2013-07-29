@@ -2,6 +2,7 @@ package ca.kijiji.contest;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.SortedMap;
@@ -9,7 +10,6 @@ import java.util.TreeMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerArray;
-import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,7 +20,7 @@ public class ParkingTicketsStats {
 	static final int UNUSED_BITS = 32 - BITS;
 	static final int SIZE = 1 << BITS;
 	static final int MASK = SIZE - 1;
-	static final AtomicReferenceArray<String> keys = new AtomicReferenceArray<String>(SIZE);
+	static final String[] keys = new String[SIZE];
 	static final AtomicIntegerArray vals = new AtomicIntegerArray(SIZE);
 	static volatile byte[] data;
 
@@ -35,7 +35,7 @@ public class ParkingTicketsStats {
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
     	if (data != null) {
 	    	for (int i = 0; i < SIZE; i++) {
-	    		keys.set(i, null);
+	    		Arrays.fill(keys, 0);
 	    		vals.set(i, 0);
 	    	}
     	}
@@ -142,7 +142,7 @@ public class ParkingTicketsStats {
         	    		int v = vals.get(i);
         	    		if (v != 0) {
         	    			synchronized (sorted) {
-        		    			sorted.put(keys.get(i), v);
+        		    			sorted.put(keys[i], v);
         	    			}
         	    		}
         	    	}
@@ -243,7 +243,7 @@ public class ParkingTicketsStats {
 	public static void add(final String k, final int d) {
 		int i = hash(k);
 		if (vals.getAndAdd(i, d) == 0) {
-			keys.set(i, k);
+			keys[i] = k;
 		}
 //		vals.getAndAdd(i, d);
 //		String k0 = keys.getAndSet(i, k);
