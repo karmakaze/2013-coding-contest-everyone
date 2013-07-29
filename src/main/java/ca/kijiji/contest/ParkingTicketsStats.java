@@ -1,8 +1,5 @@
 package ca.kijiji.contest;
 
-import gnu.trove.map.hash.TObjectIntHashMap;
-import gnu.trove.procedure.TObjectIntProcedure;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
@@ -26,7 +23,6 @@ import java.util.regex.Pattern;
  *
  */
 public class ParkingTicketsStats {
-
 	// 24-bit indices (16M possible entries)
 	static final int BITS = 24;
 	static final int UNUSED_BITS = 32 - BITS;
@@ -37,9 +33,9 @@ public class ParkingTicketsStats {
 
 	static final Pattern namePattern = Pattern.compile("([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)");
 
-    static final int nWorkers = 4;
-//	static final TObjectIntHashMap<String>[] maps = new TObjectIntHashMap[nWorkers];
-	static final TObjectIntHashMap<String> themap = new TObjectIntHashMap(20000);
+    static final int nWorkers = 7;
+	static final ArrayBlockingQueue<Long> thequeue = new ArrayBlockingQueue<>(2048, true);
+    static final OpenStringIntHashMap themap = new OpenStringIntHashMap(20480); // 8770
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(final InputStream parkingTicketsStream) {
     	printInterval("Pre-entry initialization");
@@ -52,13 +48,11 @@ public class ParkingTicketsStats {
     		data = new byte[available];
     		final byte[] data = ParkingTicketsStats.data;
 
-	        final ArrayBlockingQueue<Long> queues[] = new ArrayBlockingQueue[nWorkers];
 	        final Worker workers[] = new Worker[nWorkers];
 
 	        for (int t = 0; t < nWorkers; t++) {
-	        	queues[t] = new ArrayBlockingQueue<>(512);
 	//        	maps[t] = new TObjectIntHashMap(15000);
-	        	workers[t] = new Worker(queues[t], themap);
+	        	workers[t] = new Worker(thequeue, themap);
 	        	workers[t].start();
 	        }
 
@@ -82,11 +76,9 @@ public class ParkingTicketsStats {
     				while (data[i++] != '\n') {};
     			}
 
-				while (data[--j] != '\n') {}
-
 				final long ij = (long)i << 32 | (long)j & 0x00ffffffff;
 				try {
-					queues[t].put(ij);
+					thequeue.put(ij);
 				}
 				catch (final InterruptedException e) {
 					e.printStackTrace();
@@ -102,7 +94,7 @@ public class ParkingTicketsStats {
 
 	        for (t = 0; t < nWorkers; t++) {
 				try {
-					queues[t].put(0L);
+					thequeue.put(0L);
 				}
 				catch (final InterruptedException e) {
 					e.printStackTrace();
@@ -172,11 +164,11 @@ public class ParkingTicketsStats {
     public final static class Worker extends Thread {
     	public volatile long pad7, pad6, pad5, pad4, pad3, pad2, pad1;
 		private final ArrayBlockingQueue<Long> queue;
-		private final TObjectIntHashMap<String> map;
+		private final OpenStringIntHashMap map;
 		private final Matcher nameMatcher = namePattern.matcher("");
 		public volatile long Pad1, Pad2, Pad3, Pad4, Pad5, Pad6, Pad7;
 
-		public Worker(final ArrayBlockingQueue<Long> queue, final TObjectIntHashMap<String> map) {
+		public Worker(final ArrayBlockingQueue<Long> queue, final OpenStringIntHashMap map) {
 			this.queue = queue;
 			this.map = map;
 			pad7 = pad6 = pad5 = pad4 = pad3 = pad2 = pad1 = 7;
@@ -188,72 +180,65 @@ public class ParkingTicketsStats {
 			final byte[] data = ParkingTicketsStats.data;
 
 			for (;;) {
-				final long ij;
+				final long block_start_end;
 				try {
-					ij = queue.poll(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+					block_start_end = queue.poll(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
 				}
 				catch (final InterruptedException e) {
 					e.printStackTrace();
 					continue;
 				}
 
-				if (ij == 0) {
+				if (block_start_end == 0) {
 					break;
 				}
 
-				int i = (int)(ij >>> 32);
-    			final int j = (int)ij;
+				final int block_start = (int) (block_start_end >>> 32);
+    			final int block_end = (int) block_start_end;
 
-				// process block
-				for (int m; i < j; i = m) {
-					// process a line
-					m = i;
-					while (m < j && data[m++] != (byte)'\n') {}
+    			// process block as fields
+    			// save fields 4 (set_fine_amount) and 7 (location2)
+    			int start = block_start;
+    			int column = 0;
+    			int fine = 0;
+    			String location = null;
+    			// process block
+    			while (start < block_end) {
+    				// find a field data[start, end)
+    				int end = start;
+    				while (end < block_end && data[end] != ',' && data[end] != '\n') { end++; }
 
-					// split out fields 4 (set_fine_amount) and 7 (location2)
-		    		String set_fine_amount = "0";
-		    		String location2 = "";
-
-					int k;
-					int c = 0;
-					do {
-						k = i;
-						while (k < m && data[k] != ',' && data[k] != '\n') { k++; }
-						if (c == 4) {
-							set_fine_amount = new String(data, i, k - i);
-						}
-						else if (c == 7) {
-				    		location2 = new String(data, i, k - i);
-						}
-						c++;
-						i = k + 1;
-					} while (i < m);
-
-	    			// parse fine
-		    		int amount = 0;
-		    		try {
-			    		amount = Integer.parseInt(set_fine_amount);
-		    		}
-		    		catch (final NumberFormatException e) {
-		    			System.out.print(e.getClass().getSimpleName() +": "+ set_fine_amount);
-		    		}
-
-		    		// parse location2
-		    		nameMatcher.reset(location2);
-		    		if (nameMatcher.find()) {
-		    			final String name = nameMatcher.group();
-		    			synchronized (map) {
-			    			map.adjustOrPutValue(name, amount, amount);
-		    			}
+					if (column == 4) {
+						final String set_fine_amount = new String(data, start, end - start);
+			    		try {
+				    		fine = Integer.parseInt(set_fine_amount);
+			    		}
+			    		catch (final NumberFormatException e) {
+			    			System.out.print(e.getClass().getSimpleName() +": "+ set_fine_amount);
+			    		}
 					}
-					else {
-						// name could not be parsed, print out select subset of these errors
-						if (location2.indexOf("KING") >= 0 && location2.indexOf("PARKING") == -1) {
-		    				println(""+ location2);
+					else if (column == 7) {
+						if (fine > 0) {
+				    		location = new String(data, start, end - start);
+
+				    		nameMatcher.reset(location);
+				    		if (nameMatcher.find()) {
+				    			final String name = nameMatcher.group();
+				    			map.adjustOrPutValue(name, fine);
+							}
 						}
 					}
+
+					column++;
+					if (end < block_end && data[end] == '\n') {
+						fine = 0;
+						location = null;
+						column = 0;
+					}
+					start = end + 1;
 				}
 			}
+		   	printInterval("Worker completed");
         }
     }
 
@@ -268,22 +253,12 @@ public class ParkingTicketsStats {
 				}
 			});
 
-			final TObjectIntHashMap<String> map = themap;
-			map.forEachEntry(new TObjectIntProcedure<String>() {
-				public boolean execute(final String k, final int v) {
-					final Integer i = get(k);
-					if (i == null) {
-						put(k, v);
-					} else {
-						put(k,  i+v);
-					}
-					return true;
-				}});
+			themap.putAllTo(this);
 		}
 
 		private static Integer getMerged(final Object key) {
 			int v = 0;
-			v = themap.get(key);
+			v = themap.get((String) key);
 //			for (final TObjectIntHashMap<String> map : maps) {
 //				v += map.get(key);
 //			}
