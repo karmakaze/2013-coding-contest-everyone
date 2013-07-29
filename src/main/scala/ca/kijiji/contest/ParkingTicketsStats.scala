@@ -21,7 +21,7 @@ object ParkingTicketsStats {
     })
 
     val jMap = scala.collection.JavaConversions.mapAsJavaMap(hashMap)
-    val comparator = Ordering.natural().onResultOf(Functions.forMap(jMap)).compound(Ordering.natural())
+    val comparator : Ordering[String] = Ordering.natural().onResultOf(Functions.forMap(jMap)).compound(Ordering.natural()).reverse()
 
     return ImmutableSortedMap.copyOf(jMap, comparator)
   }
