@@ -33,12 +33,19 @@ public class ParkingTicketsStats {
 	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(nWorkers * 3, false);
 	static final int[] END_OF_WORK = new int[0];
 
+	static volatile boolean wasrun;
+
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
-    	if (data != null) {
+    	printInterval("Pre-initialization");
+
+    	if (wasrun) {
+    		Arrays.fill(keys, 0);
 	    	for (int i = 0; i < SIZE; i++) {
-	    		Arrays.fill(keys, 0);
 	    		vals.set(i, 0);
 	    	}
+    	}
+    	else {
+    		wasrun = true;
     	}
 
     	try {
@@ -57,21 +64,26 @@ public class ParkingTicketsStats {
 	    		t.start();
     		}
 
+        	printInterval("Initialization");
+
+    		int bytes_read = 0;
     		int read_start = 0;
     		int read_end = 0;
     		int block_start = 0;
     		int block_end = 0;
     		for (int read_amount = 1024 * 1024; (read_amount = parkingTicketsStream.read(data, read_start, read_amount)) > 0; ) {
+    			bytes_read += read_amount;
     			read_end = read_start + read_amount;
     			block_start = block_end;
     			block_end = read_end;
 
     			// don't offer the first (header) row
     			if (block_start == 0) {
+    				printInterval("First read");
     				while (data[block_start++] != '\n') {}
     			}
 
-    			if (read_end < available) {
+    			if (bytes_read < available) {
     				while (data[--block_end] != '\n') {}
         			block_end++;
     			}
@@ -97,17 +109,15 @@ public class ParkingTicketsStats {
         			}
     			}
 
-    			if (available - read_end < read_amount) {
-    				read_amount = available - read_end;
+    			if (available - bytes_read < read_amount) {
+    				read_amount = available - bytes_read;
     			}
 
     			read_start = read_end;
     			if (read_start + read_amount > data.length) {
-    				System.arraycopy(data, block_end, data, 0, read_end - block_end);
-    				read_start = read_end - block_end;
-    				read_end = read_start;
-    				block_start = 0;
-    				block_end =
+    				read_start = read_end = read_end - block_end;
+    				System.arraycopy(data, block_end, data, 0, read_start);
+    				block_start = block_end = 0;
     			}
     		}
 
