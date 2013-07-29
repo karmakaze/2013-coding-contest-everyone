@@ -77,6 +77,7 @@ public class ParkingTicketsStats {
         			block_end++;
     			}
 
+    			// subdivide block to minimize latency and improve work balancing
     			int sub_end = block_start;
     			int sub_start;
     			for (int k = 1; k <= nWorkers; k++) {
