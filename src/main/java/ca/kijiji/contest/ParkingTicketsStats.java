@@ -26,6 +26,9 @@ public class ParkingTicketsStats {
 
 	static final Pattern namePattern = Pattern.compile("([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)");
 
+	// 4-cores with HyperThreading sets nThreads = 8
+	static final int nThreads = Runtime.getRuntime().availableProcessors();
+
 	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(1024, true);
 	static final int[] END_OF_WORK = new int[0];
 
@@ -46,8 +49,6 @@ public class ParkingTicketsStats {
 					worker();
 				}};
 
-			int nThreads = Runtime.getRuntime().availableProcessors();
-
 			Thread[] threads = new Thread[nThreads];
 			for (int k = 0; k < nThreads; k++) {
 				threads[k] = new Thread(group, runnable, Integer.toString(k), 4096);
@@ -62,7 +63,7 @@ public class ParkingTicketsStats {
     		int read_end = 0;
     		int block_start = 0;
     		int block_end = 0;
-    		for (int read_amount = 4 * 1024 * 1024; (read_amount = parkingTicketsStream.read(data, read_end, read_amount)) > 0; ) {
+    		for (int read_amount = 3 * 1024 * 1024; (read_amount = parkingTicketsStream.read(data, read_end, read_amount)) > 0; ) {
     			read_end += read_amount;
     			block_start = block_end;
     			block_end = read_end;
@@ -130,39 +131,29 @@ public class ParkingTicketsStats {
 				return o2.compareTo(o1);
 			}});
 
-    	final int B = SIZE / 2;
+    	Thread[] threads = new Thread[2];
+    	for (int t = 0; t < 2; t++) {
+    		final int start = t == 0 ? 0 : SIZE / 2;
+    		final int end = t == 0 ? SIZE / 2 : SIZE;
 
-    	Thread t0 = new Thread(null, null, "g0", 1024) {
-    		public void run() {
-    	    	for (int i = 0; i < B; i++) {
-    	    		int v = vals.get(i);
-    	    		if (v != 0) {
-    	    			synchronized (sorted) {
-    		    			sorted.put(keys.get(i), v);
-    	    			}
-    	    		}
-    	    	}
-    		}
-    	};
-    	t0.start();
+        	threads[t] = new Thread(null, null, "gather"+ t, 2048) {
+        		public void run() {
+        	    	for (int i = start; i < end; i++) {
+        	    		int v = vals.get(i);
+        	    		if (v != 0) {
+        	    			synchronized (sorted) {
+        		    			sorted.put(keys.get(i), v);
+        	    			}
+        	    		}
+        	    	}
+        		}
+        	};
+        	threads[t].start();
+    	}
 
-    	Thread t1 = new Thread(null, null, "g1", 1024) {
-    		public void run() {
-    	    	for (int i = B; i < SIZE; i++) {
-    	    		int v = vals.get(i);
-    	    		if (v != 0) {
-    	    			synchronized (sorted) {
-    		    			sorted.put(keys.get(i), v);
-    	    			}
-    	    		}
-    	    	}
-    		}
-    	};
-    	t1.start();
-
-    	try { t0.join(); } catch (InterruptedException e) {}
-    	try { t1.join(); } catch (InterruptedException e) {}
-
+    	for (Thread thread : threads) {
+	    	try { thread.join(); } catch (InterruptedException e) {}
+    	}
         return sorted;
     }
 
