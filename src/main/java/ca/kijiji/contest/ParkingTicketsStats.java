@@ -29,7 +29,8 @@ public class ParkingTicketsStats {
 	// 4-cores with HyperThreading sets nThreads = 8
 	static final int nThreads = Runtime.getRuntime().availableProcessors();
 
-	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(1024, true);
+	// use small blocking queue size to limit read-ahead for higher cache hits
+	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(nThreads * 3, false);
 	static final int[] END_OF_WORK = new int[0];
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
@@ -63,7 +64,7 @@ public class ParkingTicketsStats {
     		int read_end = 0;
     		int block_start = 0;
     		int block_end = 0;
-    		for (int read_amount = 3 * 1024 * 1024; (read_amount = parkingTicketsStream.read(data, read_end, read_amount)) > 0; ) {
+    		for (int read_amount = 1024 * 1024; (read_amount = parkingTicketsStream.read(data, read_end, read_amount)) > 0; ) {
     			read_end += read_amount;
     			block_start = block_end;
     			block_end = read_end;
@@ -242,15 +243,24 @@ public class ParkingTicketsStats {
 
 	public static void add(final String k, final int d) {
 		int i = hash(k);
+
 		if (vals.getAndAdd(i, d) == 0) {
 			keys[i] = k;
 		}
-//		vals.getAndAdd(i, d);
-//		String k0 = keys.getAndSet(i, k);
-//		if (k0 != null && !k0.equals(k)) {
-//			println("Key hash clash: first "+ k0 +" and "+ k);
+		// use code below instead of if() above to show hash collisions
+//		if (vals.getAndAdd(i, d) != 0) {
+//			synchronized (keys) {
+//				String k0 = keys[i];
+//				if (!k.equals(k0)) {
+//					println("Key hash clash: first "+ k0 +" and "+ k);
+//				}
+//			}
+//		}
+//		else {
+//			keys[i] = k;
 //		}
 	}
+
 	public static int get(final String k) {
 		int i = hash(k);
 		return vals.get(i);
