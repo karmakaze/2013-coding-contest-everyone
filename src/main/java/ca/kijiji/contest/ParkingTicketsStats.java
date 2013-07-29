@@ -193,17 +193,17 @@ public class ParkingTicketsStats {
 			String location = null;
 			// process block
 			while (start < block_end) {
-				int end = start;
-				while (end < block_end && data[end] != ',' && data[end] != '\n') { end++; }
+				// position 'end' at delimiter of current column
+				int end = start; while (end < block_end && data[end] != ',' && data[end] != '\n') { end++; }
 
 				if (column == 4) {
-		    		final String set_fine_amount = new String(data, start, end - start);
-		    		try {
-			    		fine = Integer.parseInt(set_fine_amount);
-		    		}
-		    		catch (final NumberFormatException e) {
-		    			System.out.print(e.getClass().getSimpleName() +": "+ set_fine_amount);
-		    		}
+					// position 'start' at start of number
+					while ((data[start] < '0' || data[start] > '9') && start < end) start++;
+
+					while (start < end && (data[start] >= '0' && data[start] <= '9')) {
+						fine = fine * 10 + (data[start] - '0');
+						start++;
+					}
 				}
 				else if (column == 7) {
 					if (fine > 0) {
