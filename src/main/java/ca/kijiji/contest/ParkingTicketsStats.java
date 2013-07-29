@@ -30,24 +30,15 @@ public class ParkingTicketsStats {
 	static final int[] END_OF_WORK = new int[0];
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
-    	printInterval("Pre-entry initialization");
-
     	if (data != null) {
 	    	for (int i = 0; i < SIZE; i++) {
 	    		keys.set(i, null);
 	    		vals.set(i, 0);
 	    	}
     	}
-/*
-		printProperty("os.arch");
-    	println("InputStream is "+ parkingTicketsStream);
-    	if (parkingTicketsStream instanceof BufferedInputStream) {
-    		BufferedInputStream bis = (BufferedInputStream) parkingTicketsStream;
-    	}
-*/
+
     	try {
 			final int available = parkingTicketsStream.available();
-    		println(System.currentTimeMillis(), "Bytes available: "+ available);
 
 			ThreadGroup group = new ThreadGroup("workers");
 			Runnable runnable = new Runnable() {
@@ -78,8 +69,6 @@ public class ParkingTicketsStats {
 
     			// don't offer the first (header) row
     			if (block_start == 0) {
-    		    	printInterval("Local initialization: read first "+ read_end +" bytes");
-
     				while (data[block_start++] != '\n') {}
     			}
 
@@ -122,8 +111,6 @@ public class ParkingTicketsStats {
 				}
     		}
 
-	    	printInterval("Local initialization: read remaining of "+ read_end +" total bytes");
-
 	    	for (Thread t: threads) {
 	    		try {
 					t.join();
@@ -131,16 +118,10 @@ public class ParkingTicketsStats {
 					e.printStackTrace();
 				}
 	    	}
-
-	    	printInterval("All worker threads completed");
     	}
     	catch (IOException e) {
 			e.printStackTrace();
 		}
-
-    	printInterval("Read and summed");
-
-//    	println("Size: "+ streets.size());
 
     	final SortedMap<String, Integer> sorted = new TreeMap<String, Integer>(new Comparator<String>() {
 			public int compare(String o1, String o2) {
@@ -181,8 +162,6 @@ public class ParkingTicketsStats {
 
     	try { t0.join(); } catch (InterruptedException e) {}
     	try { t1.join(); } catch (InterruptedException e) {}
-
-    	printInterval("Populated TreeSet");
 
         return sorted;
     }
