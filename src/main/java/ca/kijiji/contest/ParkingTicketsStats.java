@@ -27,10 +27,10 @@ public class ParkingTicketsStats {
 	static final Pattern namePattern = Pattern.compile("([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)");
 
 	// 4-cores with HyperThreading sets nThreads = 8
-	static final int nThreads = Runtime.getRuntime().availableProcessors();
+	static final int nWorkers = Runtime.getRuntime().availableProcessors();
 
 	// use small blocking queue size to limit read-ahead for higher cache hits
-	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(nThreads * 3, false);
+	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(nWorkers * 3, false);
 	static final int[] END_OF_WORK = new int[0];
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
@@ -44,20 +44,18 @@ public class ParkingTicketsStats {
     	try {
 			final int available = parkingTicketsStream.available();
 
-			ThreadGroup group = new ThreadGroup("workers");
-			Runnable runnable = new Runnable() {
-				public void run() {
-					worker();
-				}};
-
-			Thread[] threads = new Thread[nThreads];
-			for (int k = 0; k < nThreads; k++) {
-				threads[k] = new Thread(group, runnable, Integer.toString(k), 4096);
+			Thread[] workers = new Thread[nWorkers];
+			for (int k = 0; k < nWorkers; k++) {
+				workers[k] = new Thread("worker"+ k) {
+					public void run() {
+						worker();
+					}
+				};
 			}
 
     		data = new byte[available];
 
-    		for (Thread t : threads) {
+    		for (Thread t : workers) {
 	    		t.start();
     		}
 
@@ -81,10 +79,10 @@ public class ParkingTicketsStats {
 
     			int sub_end = block_start;
     			int sub_start;
-    			for (int k = 1; k <= nThreads; k++) {
+    			for (int k = 1; k <= nWorkers; k++) {
     				sub_start = sub_end;
-    				sub_end = block_start + (block_end - block_start) * k / nThreads;
-    				if (k < nThreads) {
+    				sub_end = block_start + (block_end - block_start) * k / nWorkers;
+    				if (k < nWorkers) {
     					while (data[--sub_end] != '\n') {}
     					sub_end++;
     				}
@@ -104,7 +102,7 @@ public class ParkingTicketsStats {
     			}
     		}
 
-    		for (int t = 0; t < nThreads; t++) {
+    		for (int t = 0; t < nWorkers; t++) {
     			try {
 					byteArrayQueue.put(END_OF_WORK);
 				}
@@ -113,7 +111,7 @@ public class ParkingTicketsStats {
 				}
     		}
 
-	    	for (Thread t: threads) {
+	    	for (Thread t: workers) {
 	    		try {
 					t.join();
 				} catch (InterruptedException e) {
@@ -165,7 +163,7 @@ public class ParkingTicketsStats {
 		Matcher nameMatcher = namePattern.matcher("");
 
 		// local access faster than volatile fields
-		byte[] data = ParkingTicketsStats.data;
+		final byte[] data = ParkingTicketsStats.data;
 
 		for (;;) {
 			int[] block_start_end;
