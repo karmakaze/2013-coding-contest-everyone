@@ -2,7 +2,6 @@ package ca.kijiji.contest;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.SortedMap;
@@ -16,8 +15,8 @@ import java.util.regex.Pattern;
 
 public class ParkingTicketsStats {
 
-	// 24-bit indices (16M possible entries)
-	static final int BITS = 24;
+	// 23-bit indices (8M possible entries)
+	static final int BITS = 23;
 	static final int UNUSED_BITS = 32 - BITS;
 	static final int SIZE = 1 << BITS;
 	static final int MASK = SIZE - 1;
@@ -27,12 +26,18 @@ public class ParkingTicketsStats {
 
 	static final Pattern namePattern = Pattern.compile("([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)");
 
-	static volatile int available;
-
-	static final ArrayBlockingQueue<Long> byteArrayQueue = new ArrayBlockingQueue<Long>(1024, true);
+	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(1024, true);
+	static final int[] END_OF_WORK = new int[0];
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
     	printInterval("Pre-entry initialization");
+
+    	if (data != null) {
+	    	for (int i = 0; i < SIZE; i++) {
+	    		keys.set(i, null);
+	    		vals.set(i, 0);
+	    	}
+    	}
 /*
 		printProperty("os.arch");
     	println("InputStream is "+ parkingTicketsStream);
@@ -41,7 +46,7 @@ public class ParkingTicketsStats {
     	}
 */
     	try {
-			available = parkingTicketsStream.available();
+			final int available = parkingTicketsStream.available();
     		println(System.currentTimeMillis(), "Bytes available: "+ available);
 
 			ThreadGroup group = new ThreadGroup("workers");
@@ -49,10 +54,12 @@ public class ParkingTicketsStats {
 				public void run() {
 					worker();
 				}};
-			int n = 7;
-			Thread[] threads = new Thread[n];
-			for (int k = 0; k < n; k++) {
-				threads[k] = new Thread(group, runnable, Integer.toString(k), 1024);
+
+			int nThreads = Runtime.getRuntime().availableProcessors();
+
+			Thread[] threads = new Thread[nThreads];
+			for (int k = 0; k < nThreads; k++) {
+				threads[k] = new Thread(group, runnable, Integer.toString(k), 4096);
 			}
 
     		data = new byte[available];
@@ -61,47 +68,61 @@ public class ParkingTicketsStats {
 	    		t.start();
     		}
 
-    		int a = 0;
-    		int i = 0;
-    		int j = 0;
-    		for (int c = 32 * 1024 * 1024; (c = parkingTicketsStream.read(data, a, c)) > 0; ) {
-    			a += c;
-    			i = j;
-    			j = a;
-    			if (a < available) {
-    				while (data[--j] != '\n') {}
-        			j++;
-    			}
+    		int read_end = 0;
+    		int block_start = 0;
+    		int block_end = 0;
+    		for (int read_amount = 4 * 1024 * 1024; (read_amount = parkingTicketsStream.read(data, read_end, read_amount)) > 0; ) {
+    			read_end += read_amount;
+    			block_start = block_end;
+    			block_end = read_end;
 
     			// don't offer the first (header) row
-    			if (i == 0) {
-    		    	printInterval("Local initialization: read first "+ a +" bytes");
+    			if (block_start == 0) {
+    		    	printInterval("Local initialization: read first "+ read_end +" bytes");
 
-    				while (data[i++] != '\n') {};
+    				while (data[block_start++] != '\n') {}
     			}
 
-    			long ij = (long)i << 32 | (long)j & 0x0ffffffffL;
-    			try {
-					while (!byteArrayQueue.offer(ij, 1, TimeUnit.SECONDS)) {}
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
+    			if (read_end < available) {
+    				while (data[--block_end] != '\n') {}
+        			block_end++;
+    			}
 
-    			if (available - a < c) {
-    				c = available - a;
+    			int sub_end = block_start;
+    			int sub_start;
+    			for (int k = 1; k <= nThreads; k++) {
+    				sub_start = sub_end;
+    				sub_end = block_start + (block_end - block_start) * k / nThreads;
+    				if (k < nThreads) {
+    					while (data[--sub_end] != '\n') {}
+    					sub_end++;
+    				}
+        			for (;;) {
+    					try {
+    						byteArrayQueue.put(new int[] {sub_start, sub_end});
+    						break;
+    					}
+    					catch (InterruptedException e) {
+    						e.printStackTrace();
+    					}
+        			}
+    			}
+
+    			if (available - read_end < read_amount) {
+    				read_amount = available - read_end;
     			}
     		}
 
-    		for (int t = 0; t < n; t++) {
+    		for (int t = 0; t < nThreads; t++) {
     			try {
-					byteArrayQueue.put(0L);
+					byteArrayQueue.put(END_OF_WORK);
 				}
     			catch (InterruptedException e) {
 					e.printStackTrace();
 				}
     		}
 
-	    	printInterval("Local initialization: read remaining of "+ a +" total bytes");
+	    	printInterval("Local initialization: read remaining of "+ read_end +" total bytes");
 
 	    	for (Thread t: threads) {
 	    		try {
@@ -129,7 +150,6 @@ public class ParkingTicketsStats {
 			}});
 
     	final int B = SIZE / 2;
-//    	final int C = B + B + 1;
 
     	Thread t0 = new Thread(null, null, "g0", 1024) {
     		public void run() {
@@ -161,7 +181,6 @@ public class ParkingTicketsStats {
 
     	try { t0.join(); } catch (InterruptedException e) {}
     	try { t1.join(); } catch (InterruptedException e) {}
-//    	try { t2.join(); } catch (InterruptedException e) {}
 
     	printInterval("Populated TreeSet");
 
@@ -172,29 +191,29 @@ public class ParkingTicketsStats {
      * worker parallel worker takes blocks of bytes read and processes them
      */
     static final void worker() {
-		String threadName = Thread.currentThread().getName();
 		Matcher nameMatcher = namePattern.matcher("");
 
 		// local access faster than volatile fields
 		byte[] data = ParkingTicketsStats.data;
 
 		for (;;) {
-			Long block_start_end = null;
-			do {
+			int[] block_start_end;
+			for (;;) {
 				try {
-					block_start_end = byteArrayQueue.poll(5, TimeUnit.MILLISECONDS);
+					block_start_end = byteArrayQueue.poll(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+					break;
 				}
 				catch (InterruptedException e) {
 					e.printStackTrace();
 					continue;
 				}
-			} while (block_start_end == null);
+			}
 
-			if (block_start_end == 0) {
+			if (block_start_end == END_OF_WORK) {
 				break;
 			}
-			final int block_start = (int) (block_start_end >>> 32);
-			final int block_end = (int) (long)block_start_end;
+			final int block_start = block_start_end[0];
+			final int block_end = block_start_end[1];
 
 			// process block as fields
 			// save fields 4 (set_fine_amount) and 7 (location2)
@@ -237,29 +256,26 @@ public class ParkingTicketsStats {
 				start = end + 1;
 			}
 		}
-
-		println(System.currentTimeMillis(), "Thread ["+ threadName +"] ending normally");
     }
 
-	public static int hash(final String k) {
+	public static int hash(String k) {
 		int h = 0;
-		try {
-			for (byte b : k.getBytes("UTF-8")) {
-				int c = (b == ' ') ? 0 : (int)b & 0x00FF - 64;
-				h = h * 71 + c;
-				h = (h ^ (h >>> BITS)) & MASK;
+		for (char c : k.toCharArray()) {
+			if (h < 0 || h > MASK) {
+				h = (h & MASK) ^ (h >>> BITS);
 			}
+			int i = (c == ' ') ? 0 : (int)c & 0x00FF - 64;
+			h = h * 47 + i;
 		}
-		catch (UnsupportedEncodingException e) {}
-
-		return h;
+		return h & MASK;
 	}
 
 	public static void add(final String k, final int d) {
 		int i = hash(k);
-		vals.addAndGet(i, d);
-
-		keys.compareAndSet(i, null, k);
+		if (vals.getAndAdd(i, d) == 0) {
+			keys.set(i, k);
+		}
+//		vals.getAndAdd(i, d);
 //		String k0 = keys.getAndSet(i, k);
 //		if (k0 != null && !k0.equals(k)) {
 //			println("Key hash clash: first "+ k0 +" and "+ k);
