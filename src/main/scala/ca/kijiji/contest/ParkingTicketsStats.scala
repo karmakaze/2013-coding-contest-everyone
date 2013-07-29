@@ -1,7 +1,9 @@
 package ca.kijiji.contest
 
 import scala.io.Source
-import java.util
+import scala.collection.mutable
+import com.google.common.base.Functions
+import com.google.common.collect.{Ordering, ImmutableSortedMap}
 
 object ParkingTicketsStats {
   def sortStreetsByProfitability(parkingTicketsStream: java.io.InputStream): java.util.SortedMap[java.lang.String, java.lang.Integer] = {
@@ -10,14 +12,17 @@ object ParkingTicketsStats {
     //skip the first line
     iterator.next()
 
-    val hashMap = new scala.collection.concurrent.TrieMap[String, Integer]()
+    val hashMap = mutable.Map[String, Integer]()
     //iterate through lines
     iterator.foreach(i => {
       val inf = Infraction.fromString(i)
-      val prev : Integer = hashMap.getOrElse(inf.street, 0)
+      val prev : Integer = hashMap.getOrElse(inf.street,0)
       hashMap.put(inf.street, prev + inf.amount)
     })
 
-    return new java.util.TreeMap[String, Integer](scala.collection.JavaConversions.mapAsJavaMap(hashMap))
+    val jMap = scala.collection.JavaConversions.mapAsJavaMap(hashMap)
+    val comparator = Ordering.natural().onResultOf(Functions.forMap(jMap)).compound(Ordering.natural())
+
+    return ImmutableSortedMap.copyOf(jMap, comparator)
   }
 }
