@@ -44,12 +44,14 @@ class StreetProfitTabulator extends AbstractTicketWorker {
         // We were able to parse a street name out of the address
         if(streetName != null) {
             // Figure out how much the fine for this infraction was
-            Integer fine = Ints.tryParse(getColumn(ticketCols, "set_fine_amount"));
+            String fineField = getColumn(ticketCols, "set_fine_amount");
+            Integer fine = Ints.tryParse(fineField);
 
             if(fine != null) {
                 _mStreetStats.addFineTo(streetName, fine);
             } else {
                 // Welp, looks like there was something weird in the fine field.
+                LOG.warn(String.format("%s is not a value for the fine field", fineField));
                 mErrCounter.getAndIncrement();
             }
         } else {

@@ -10,6 +10,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Base class for Asynchronous ticket processors
+ */
 abstract class AbstractTicketWorker extends Thread {
 
     private static final Logger LOG = LoggerFactory.getLogger(StreetProfitTabulator.class);

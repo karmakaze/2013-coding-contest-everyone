@@ -24,14 +24,23 @@ class StreetNameResolver {
     // This could be complete garbage like "aaaaa" but we don't really care so long as the street name's valid.
     private static final String STREET_NUM_REGEX = "(?<num>[\\p{N}\\p{Ll}\\-&/,\\. ]*\\p{Lu}?)";
 
-    // Street names, designations and directions are all upper-case. Fails on streets with periods in the name proper
-    // in favor of discarding periods at the end of street designation abbreviations (as in "AVE.").
-    private static final String STREET_REGEX = "(?<street>[\\p{N}\\p{L} '\\-\\.]*)";
+    // Street names, designations and directions are all upper-case. Will also capture the UNIT if one is on the address,
+    // use UNIT_REGEX if you need to get / remove it.
+    private static final String STREET_REGEX = "(?<street>[\\p{N}\\p{L} #'\\-\\.]*)";
 
     // Ignore garbage at the beginning and end of the string and pull out the street numbers / names
     // Whoever released this data set as-is is a sadist.
+
+    // Types of addresses this will fail on:
+    // Compound addresses ("FOO ST & BAR ST", "QUUX ST / BAZ RD")
+    // Containing data that should be in location3 or 4 ("BAY ST N/O", "BACK/OF   425 ADELAIDE ST W")
+    // Addresses with non-standard characters ("90 ,PRME;;E CT") as they are usually accidental
+    // Adresses with non-standard data ("1240 ISLINGTON AV KISS & RIDE M8X 141")
+
+    // We do allow:
+    // Garbage before, between and after the street ("#221 $$$$FOO ST######") which gets discarded
     private static final Pattern ADDRESS_REGEX =
-            Pattern.compile("^[^\\p{N}\\p{L}]*(" + STREET_NUM_REGEX + "[^\\p{N}\\p{L}]*\\s+)?" + STREET_REGEX + ".*");
+            Pattern.compile("^[^\\p{N}\\p{L}]*(" + STREET_NUM_REGEX + "[^\\p{N}\\p{L}]*\\s+)?" + STREET_REGEX + "[^\\p{N}\\p{L}]*$");
 
     // Get or a remove a unit number from an address
     // https://www.canadapost.ca/tools/pg/manual/PGaddress-e.asp#1380473
@@ -118,12 +127,7 @@ class StreetNameResolver {
                 // Get just the street *name* from the street
                 streetName = _getStreetNameFromStreet(street);
 
-                // Empty street name, reject it.
-                if(streetName.isEmpty()) {
-                    return null;
-                }
-
-                // Reject street names that are *entirely* comprised of numbers
+                // Reject street names that are *entirely* comprised of numbers and / or whitespace
                 if(StringUtils.isNumericSpace(streetName)) {
                     return null;
                 }
@@ -149,6 +153,16 @@ class StreetNameResolver {
      * Results in at least a 17% speed increase over always running the full street name parser.
      *
      * This optimizes for the common case of NUMBER? STREET DESIGNATION? DIRECTION? with no garbage.
+     *
+     * Number of streets beginning with (what looks like) street numbers
+     * $ cut -d, -f8 src/test/resources/Parking_Tags_Data_2012.csv | grep -P '^\d[\da-z]*\s' | wc -l
+     * 2603723
+     * Number of streets beginning with (what looks like) streets
+     * $ cut -d, -f8 src/test/resources/Parking_Tags_Data_2012.csv | grep -P '^[A-Z]' | wc -l
+     * 138405
+     *
+     * 2742128 / 2746155
+     *
      * This allows us to do expensive operations for the sake of accuracy in the full parser without
      * taking too much of a performance hit (only around 20,000 addresses miss the cache on average)
      * We also prefer a cache miss to a false cache hit, for example:

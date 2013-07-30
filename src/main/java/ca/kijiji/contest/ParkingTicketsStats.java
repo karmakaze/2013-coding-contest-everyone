@@ -14,7 +14,7 @@ import org.slf4j.*;
 // "PENGARTH CROUT" and "BEVERLEY ST BLOCKING PRIVATE DRWY" that would normally be fixed with a manual once-over...
 // but let's pretend we have good data, These errors are small enough not to cause huge problems
 
-// Don't park anywhere near Seneca college.
+// Respect to Doug Lea and Cliff Click. Don't park near Seneca college.
 
 public class ParkingTicketsStats {
 
@@ -110,7 +110,7 @@ public class ParkingTicketsStats {
         countDownLatch.await();
 
         // If there were any errors, print how many
-        int numErrs = errCounter.get();
+        int numErrs = errCounter.intValue();
         if(numErrs > 0) {
             LOG.warn(String.format("Encountered %d errors during processing", numErrs));
         }
@@ -149,7 +149,7 @@ public class ParkingTicketsStats {
 
         // Put the results into an immutable map ordered by value
         // It's now my belief that this *does* conform to the interface of SortedMap as it in no way
-        // guarantees natural sort order or even that the sort order be based on a *direct* property
+        // guarantees natural sort order or even that the sort order be based on an *intrinsic* property
         // of the key.
         ImmutableSortedMap.Builder<String, Integer> builder =
                 new ImmutableSortedMap.Builder<>(Ordering.explicit(sortedKeyOrder));
