@@ -17,21 +17,22 @@ import java.util.concurrent.TimeUnit;
 
 public class ParkingTicketsStats {
 
-	public enum Threading {
+	public enum ThreadingScheme {
 		SingleThreaded,
 		MultiThreaded
 	}
 	
-	public enum Parsing {
+	public enum ParsingScheme {
 		Regex,
+		Scanning,
 		Components
 	}
 	
 	final static boolean parseSignificantDataOnly = true;
 	final static int dataChunkSize = 10 * 1024 * 1024;
 	
-	final static Threading threadingScheme = Threading.MultiThreaded;
-	final static Parsing parsingScheme = Parsing.Regex;
+	final static ThreadingScheme threadingScheme = ThreadingScheme.MultiThreaded;
+	final static ParsingScheme parsingScheme = ParsingScheme.Regex;
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
     	switch (threadingScheme) {
