@@ -6,10 +6,13 @@ import java.util.Comparator;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.Map;
+import java.util.SortedSet;
+
+//Based on [TreeMap sort by value](http://stackoverflow.com/questions/2864840/treemap-sort-by-value).
 
 public class SortedMapByValue<K,V> extends AbstractMap<K,V> implements SortedMap<K,V> {
 	
-	// Based on [TreeMap sort by value](http://stackoverflow.com/questions/2864840/treemap-sort-by-value).
+	private SortedSet<Map.Entry<K,V>> _entrySet;
 	
 	public SortedMapByValue() {
 		super();
@@ -21,12 +24,12 @@ public class SortedMapByValue<K,V> extends AbstractMap<K,V> implements SortedMap
 		return null;
 	}
 	
-	public Set<Map.Entry<K,V>> entrySet() {
-		return null;
+	public SortedSet<Map.Entry<K,V>> entrySet() {
+		return _entrySet;
 	}
 	
 	public K firstKey() {
-		return null;
+		return _entrySet.first().getKey();
 	}
 	
 	public SortedMap<K,V> headMap(K toKey) {
@@ -38,7 +41,7 @@ public class SortedMapByValue<K,V> extends AbstractMap<K,V> implements SortedMap
 	}
 	
 	public K lastKey() {
-		return null;
+		return _entrySet.last().getKey();
 	}
 	
 	public SortedMap<K,V> subMap(K fromKey, K toKey) {
