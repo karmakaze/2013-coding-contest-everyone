@@ -30,10 +30,12 @@ public class ParkingTicketsStats {
 	static final int nWorkers = Runtime.getRuntime().availableProcessors();
 
 	// use small blocking queue size to limit read-ahead for higher cache hits
-	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(nWorkers * 3, false);
+	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(128 * nWorkers, false);
 	static final int[] END_OF_WORK = new int[0];
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
+    	printInterval("Pre-initialization");
+
     	if (data != null) {
 	    	for (int i = 0; i < SIZE; i++) {
 	    		Arrays.fill(keys, 0);
@@ -62,19 +64,26 @@ public class ParkingTicketsStats {
     		int read_end = 0;
     		int block_start = 0;
     		int block_end = 0;
-    		for (int read_amount = 1024 * 1024; (read_amount = parkingTicketsStream.read(data, read_end, read_amount)) > 0; ) {
+    		for (int read_amount = 4 * 1024 * 1024; (read_amount = parkingTicketsStream.read(data, read_end, read_amount)) > 0; ) {
     			read_end += read_amount;
     			block_start = block_end;
     			block_end = read_end;
 
     			// don't offer the first (header) row
     			if (block_start == 0) {
+    		    	printInterval("First read");
     				while (data[block_start++] != '\n') {}
+    			}
+    			else {
+    		    	//printInterval("Read "+ read_end);
     			}
 
     			if (read_end < available) {
     				while (data[--block_end] != '\n') {}
         			block_end++;
+    			}
+    			else {
+    	        	printInterval("Completed reading");
     			}
 
     			// subdivide block to minimize latency and improve work balancing
@@ -83,7 +92,7 @@ public class ParkingTicketsStats {
     			for (int k = 1; k <= nWorkers; k++) {
     				sub_start = sub_end;
     				sub_end = block_start + (block_end - block_start) * k / nWorkers;
-    				if (k < nWorkers) {
+    				if (read_amount < available || k < nWorkers) {
     					while (data[--sub_end] != '\n') {}
     					sub_end++;
     				}
@@ -103,6 +112,8 @@ public class ParkingTicketsStats {
     			}
     		}
 
+        	printInterval("Completed queuing work");
+
     		for (int t = 0; t < nWorkers; t++) {
     			try {
 					byteArrayQueue.put(END_OF_WORK);
@@ -112,6 +123,8 @@ public class ParkingTicketsStats {
 				}
     		}
 
+        	printInterval("Completed queuing End-of-Work");
+
 	    	for (Thread t: workers) {
 	    		try {
 					t.join();
@@ -119,6 +132,8 @@ public class ParkingTicketsStats {
 					e.printStackTrace();
 				}
 	    	}
+
+        	printInterval("Threads completed");
     	}
     	catch (IOException e) {
 			e.printStackTrace();
@@ -131,10 +146,11 @@ public class ParkingTicketsStats {
 				return o2.compareTo(o1);
 			}});
 
-    	Thread[] threads = new Thread[2];
-    	for (int t = 0; t < 2; t++) {
-    		final int start = t == 0 ? 0 : SIZE / 2;
-    		final int end = t == 0 ? SIZE / 2 : SIZE;
+    	final int nGatherers = 2;
+    	Thread[] threads = new Thread[nGatherers];
+    	for (int t = 0; t < nGatherers; t++) {
+    		final int start = SIZE * t / nGatherers;
+    		final int end = SIZE * (t + 1) / nGatherers;
 
         	threads[t] = new Thread(null, null, "gather"+ t, 2048) {
         		public void run() {
@@ -151,9 +167,12 @@ public class ParkingTicketsStats {
         	threads[t].start();
     	}
 
+    	printInterval("Started gatherers");
+
     	for (Thread thread : threads) {
 	    	try { thread.join(); } catch (InterruptedException e) {}
     	}
+    	printInterval("Gatherers completed");
         return sorted;
     }
 
