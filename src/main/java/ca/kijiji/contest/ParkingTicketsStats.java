@@ -5,11 +5,15 @@ import java.io.CharArrayReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.SortedMap;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 public class ParkingTicketsStats {
 	
@@ -22,7 +26,7 @@ public class ParkingTicketsStats {
 	
 	final static boolean parseSignificantDataOnly = true;
 	final static int dataChunkSize = 10 * 1024 * 1024;
-	final static Approach approach = Approach.SingleThreadedWithRegex;
+	final static Approach approach = Approach.MultiThreadedWithRegex;
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
     	switch (approach) {
@@ -88,15 +92,16 @@ public class ParkingTicketsStats {
         	parkingTicketsReader = new BufferedReader(new InputStreamReader(parkingTicketsStream, "ascii"));
         	parkingTicketsReader.readLine();
         } catch (IOException ioe) {
-        	return null;
+        	ioe.printStackTrace();
         }
     	
     	// Prepare an ExecutorService to process incoming data chunks
     	int cores = Runtime.getRuntime().availableProcessors();
     	ExecutorService consumers = Executors.newFixedThreadPool(cores);
-    	
+    	ArrayList<Future<HashMap<String, Integer>>> futures = new ArrayList<Future<HashMap<String, Integer>>>();
     	
     	char[] dataChunk = null;
+    	BufferedReader dataChunkReader = null;
     	String remainingLine = null;
     	int charactersRead = -1;
     	int remainingLength = 0;
@@ -109,21 +114,51 @@ public class ParkingTicketsStats {
     			if (charactersRead != -1) {
     				remainingLine = parkingTicketsReader.readLine();
     				
-    				if ((remainingLength = remainingLine.length()) > 0) {
+    				if (remainingLine != null && (remainingLength = remainingLine.length()) > 0) {
     					remainingLine.getChars(0, remainingLength, dataChunk, charactersRead);
     					charactersRead += remainingLength;
     				}
     				
-    				BufferedReader dataChunkReader = new BufferedReader(new CharArrayReader(dataChunk, 0, charactersRead));
-    				
-    				consumers.submit(new TagDataChunkProcessor(dataChunkReader));
+    				dataChunkReader = new BufferedReader(new CharArrayReader(dataChunk, 0, charactersRead));
+    				futures.add(consumers.submit(new TagDataChunkProcessor(dataChunkReader)));
     			}
     		} while (charactersRead != -1);
     	} catch (IOException ioe) {
-    		return null;
+    		ioe.printStackTrace();
     	}
     	
-    	return null;
+    	try {
+    		consumers.shutdown();
+			consumers.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+    	
+    	HashMap<String, Integer> futureProfitabilityByStreet = null;
+    	HashMap<String, Integer> accumulatedProfitabilityByStreet = new HashMap<String, Integer>();
+    	Integer intermediateFines, accumulatedFines = null;
+    	
+    	try {
+    		for (Future<HashMap<String, Integer>> future : futures) {
+    			futureProfitabilityByStreet = future.get();
+    			for (String street : futureProfitabilityByStreet.keySet()) {
+    				intermediateFines = futureProfitabilityByStreet.get(street);
+    				accumulatedFines = accumulatedProfitabilityByStreet.get(street);
+    				accumulatedFines = (accumulatedFines != null) ? accumulatedFines + intermediateFines : intermediateFines;
+    				
+    				accumulatedProfitabilityByStreet.put(street, accumulatedFines);
+    			}
+        	}
+    	} catch (InterruptedException e) {
+    		e.printStackTrace();
+    	} catch (ExecutionException e) {
+    		e.printStackTrace();
+    	}
+    	
+    	SortedMapByValue<String, Integer> sortedProfitabilityByStreet = new SortedMapByValue<String, Integer>();
+        sortedProfitabilityByStreet.entrySet().addAll(accumulatedProfitabilityByStreet.entrySet());
+    	
+    	return sortedProfitabilityByStreet;
     }
     
     static class TagDataChunkProcessor implements Callable<HashMap<String, Integer>> {
