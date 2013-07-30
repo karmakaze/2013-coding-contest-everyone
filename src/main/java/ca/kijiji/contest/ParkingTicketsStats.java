@@ -18,8 +18,8 @@ import java.util.regex.Pattern;
 
 public class ParkingTicketsStats {
 
-	// 24-bit indices (16M possible entries)
-	static final int BITS = 24;
+	// 23-bit indices (8M possible entries)
+	static final int BITS = 23;
 	static final int UNUSED_BITS = 32 - BITS;
 	static final int SIZE = 1 << BITS;
 	static final int MASK = SIZE - 1;
@@ -245,7 +245,7 @@ public class ParkingTicketsStats {
 				    		*/
 	//				    		String province = parts[10];
 				    			add(l, set_fine_amount);
-	
+
 	//			    			if (!l.equals("KING") && (location2.indexOf(" KING ") >= 0 || location2.endsWith(" KING"))) {
 	//			    				println(l +" <- "+ location2);
 	//			    			}
@@ -279,26 +279,30 @@ public class ParkingTicketsStats {
 		int h = 0;
 		try {
 			for (byte b : k.getBytes("UTF-8")) {
+				if (h < 0 || h > MASK) {
+					h = (h & MASK) ^ (h >>> BITS);
+				}
 				int c = (b == ' ') ? 0 : (int)b & 0x00FF - 64;
-				h = h * 71 + c;
-				h = (h ^ (h >>> BITS)) & MASK;
+				h = h * 47 + c;
 			}
 		}
 		catch (UnsupportedEncodingException e) {}
 
-		return h;
+		return h & MASK;
 	}
 
 	public static void add(final String k, final int d) {
 		int i = hash(k);
-		vals.addAndGet(i, d);
 
-//		String k0 = keys[i];
-//		if (k0 != null && !k0.equals(k)) {
-//			println("Key hash clash: first "+ k0 +" and "+ k);
-//		}
-//		else {
+		if (vals.getAndAdd(i, d) == 0) {
 			keys.set(i, k);
+		}
+		// uncomment below to print hash collisions
+//		else {
+//			String k0 = keys.getAndSet(i, k);
+//			if (!k.equals(k0)) {
+//				println("Key hash clash: first "+ k +" and "+ k0);
+//			}
 //		}
 	}
 	public static int get(final String k) {
