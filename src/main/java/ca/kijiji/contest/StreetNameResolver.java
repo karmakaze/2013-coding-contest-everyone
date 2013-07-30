@@ -154,10 +154,10 @@ class StreetNameResolver {
      *
      * This optimizes for the common case of NUMBER? STREET DESIGNATION? DIRECTION? with no garbage.
      *
-     * Number of streets beginning with (what looks like) street numbers
+     * Number of addresses beginning with (what looks like) street numbers
      * $ cut -d, -f8 src/test/resources/Parking_Tags_Data_2012.csv | grep -P '^\d[\da-z]*\s' | wc -l
      * 2603723
-     * Number of streets beginning with (what looks like) streets
+     * Number of addresses beginning with (what looks like) street names
      * $ cut -d, -f8 src/test/resources/Parking_Tags_Data_2012.csv | grep -P '^[A-Z]' | wc -l
      * 138405
      *
