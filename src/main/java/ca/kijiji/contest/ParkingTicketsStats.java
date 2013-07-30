@@ -180,8 +180,6 @@ public class ParkingTicketsStats {
 			// local access faster than volatile fields
 			byte[] data = ParkingTicketsStats.data;
 
-			final ArrayList<String> parts = new ArrayList<>();
-
 			int work = 0;
 			do {
 				Long ij = byteArrayQueue.poll(5, TimeUnit.MILLISECONDS);
@@ -196,60 +194,34 @@ public class ParkingTicketsStats {
 						m = i;
 						while (m < j && data[m++] != (byte)'\n') {}
 
-						parts.clear();
 						int k;
 						int c = 0;
+						int fine = 0;
+						String location2 = null;
 						do {
 							k = i;
 							while (k < m && data[k] != ',' && data[k] != '\n') { k++; }
-							if (c == 4 || c == 7) {
-								parts.add(new String(data, i, k - i));
-							} else {
-								parts.add(null);
+							if (c == 4) {
+								// position 'start' at start of number
+								while ((data[i] < '0' || data[i] > '9') && i < k) i++;
+
+								while (i < k && (data[i] >= '0' && data[i] <= '9')) {
+									fine = fine * 10 + (data[i] - '0');
+									i++;
+								}
+							}
+							else if (c == 7) {
+								location2 = new String(data, i, k - i);
 							}
 							c++;
 							i = k + 1;
 						} while (i < m);
 
 			    		try {
-	//			    		String tag_number_masked = parts[0];
-	//			    		String date_of_infraction = parts[1];
-	//			    		String infraction_code = parts[2];
-	//			    		String infraction_description = parts[3];
-				    		String sfa = parts.get(4);
-				    		Integer set_fine_amount = 0;
-				    		try {
-					    		set_fine_amount = Integer.parseInt(sfa);
-				    		}
-				    		catch (NumberFormatException e) {
-				    			System.out.print(e.getClass().getSimpleName() +": "+ sfa);
-				    		}
-	//			    		String time_of_infraction = parts[5];
-	//			    		String location1 = parts[6];
-				    		String location2 = parts.get(7);
-	//			    		String location3 = parts[8];
-	//			    		String location4 = parts[9];
 				    		nameMatcher.reset(location2);
 				    		if (nameMatcher.find()) {
 				    			String l = nameMatcher.group();
-	//		    			streetMatcher.reset(location2);
-	//		    			if (streetMatcher.find()) {
-	//		    				String l = streetMatcher.group(2);
-			    			/*
-					    	//	l = l.replaceAll("[0-9]+", "");
-					    		l = l.replaceAll("[^A-Z]+ ", "");
-					    		l = l.replaceAll(" (N|NORTH|S|SOUTH|W|WEST|E|EAST)$", "");
-					    		l = l.replaceAll(" (AV|AVE|AVENUE|BLVD|CRES|COURT|CRT|DR|RD|ST|STR|STREET|WAY)$", "");
-					    	//	l = l.replaceAll("^(A|M) ", "");
-					    		l = l.replaceAll("(^| )(PARKING) .*$", "");
-					    		l = l.trim();
-				    		*/
-	//				    		String province = parts[10];
-				    			add(l, set_fine_amount);
-
-	//			    			if (!l.equals("KING") && (location2.indexOf(" KING ") >= 0 || location2.endsWith(" KING"))) {
-	//			    				println(l +" <- "+ location2);
-	//			    			}
+				    			add(l, fine);
 			    			}
 			    			else {
 			    				if (location2.indexOf("KING") >= 0 && location2.indexOf("PARKING") == -1) {
@@ -258,7 +230,7 @@ public class ParkingTicketsStats {
 			    			}
 			    		}
 			    		catch (ArrayIndexOutOfBoundsException e) {
-			    			println(e.getClass().getSimpleName() +": "+ parts);
+			    			println(e.getClass().getSimpleName() +": "+ location2);
 			    			e.printStackTrace();
 			    		}
 					}
