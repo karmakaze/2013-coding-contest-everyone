@@ -13,6 +13,11 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Perfect-hashing into 23-bit index AtomicIntegerArray values.
+ *
+ * @author Keith Kim
+ */
 public class ParkingTicketsStats1 {
 
 	// 23-bit indices (8M possible entries)

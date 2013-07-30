@@ -12,6 +12,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
+ * Compact open-addressing hash table with mechanical sympathy.
+ *
+ * @author Keith Kim
+ */
+/**
  * Pipeline decomposition:
  * - InputStream
  * - byte[] blocks
