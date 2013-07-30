@@ -5,14 +5,13 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class ParkingTicketsStats {
 
-    private static final int THREAD_COUNT = 5;
-    private static final int FILE_INPUT_BUFFER_SIZE = 2621440;
-    private static final int INPUT_QUEUE_LENGTH = 5000;
+    private static final int THREAD_COUNT = 4;
+    private static final int FILE_INPUT_BUFFER_SIZE = 262144;
+    private static final int INPUT_QUEUE_LENGTH = 3000;
 
     private static final int FINE_AMOUNT_COLUMN = 4;
     private static final int STREET_ADDRESS_COLUMN = 7;
@@ -22,7 +21,7 @@ public class ParkingTicketsStats {
 
     // Kind of shocked that ArrayBlockingQueue isn't faster, but testing and the docs say LinkedBlockingQueue is fastest
     private static BlockingQueue<String> lineQueue = new LinkedBlockingQueue<String>(INPUT_QUEUE_LENGTH);
-    private static SortedMap<String, Integer> output = new ConcurrentSkipListMap<String, Integer>();
+    private static SortedMap<String, Integer> output = Collections.synchronizedSortedMap(new TreeMap <String, Integer>());
 
     // Build the cleaning regex only once
     private static final String cleaningRegex = buildRegex();
