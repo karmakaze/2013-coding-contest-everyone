@@ -33,8 +33,8 @@ public class ParkingTicketsStats {
 
 	static final Pattern namePattern = Pattern.compile("([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)");
 
-    static final int nWorkers = 7;
-	static final ArrayBlockingQueue<Long> thequeue = new ArrayBlockingQueue<>(2048, true);
+    static final int nWorkers = 4;
+	static final ArrayBlockingQueue<Long> thequeue = new ArrayBlockingQueue<>(2 * nWorkers, true);
     static final OpenStringIntHashMap themap = new OpenStringIntHashMap(20480); // 8770
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(final InputStream parkingTicketsStream) {
@@ -56,27 +56,27 @@ public class ParkingTicketsStats {
 	        	workers[t].start();
 	        }
 
-    		int a = 0;
-    		int i = 0;
-    		int j = 0;
+    		int read_end = 0;
+    		int block_start = 0;
+    		int block_end = 0;
     		int t = 0;
-    		for (int c = 4 * 1024 * 1024; (c = parkingTicketsStream.read(data, a, c)) > 0; ) {
-    			a += c;
-    			i = j;
-    			j = a;
-    			if (a < available) {
-    				while (data[--j] != '\n') {}
-        			j++;
+    		for (int read_amount = 1024 * 1024; (read_amount = parkingTicketsStream.read(data, read_end, read_amount)) > 0; ) {
+    			read_end += read_amount;
+    			block_start = block_end;
+    			block_end = read_end;
+    			if (read_end < available) {
+    				while (data[--block_end] != '\n') {}
+        			block_end++;
     			}
 
     			// don't offer the first (header) row
-    			if (i == 0) {
-    		    	printInterval("Local initialization: read first "+ a +" bytes");
+    			if (block_start == 0) {
+    		    	printInterval("Local initialization: read first "+ read_end +" bytes");
 
-    				while (data[i++] != '\n') {};
+    				while (data[block_start++] != '\n') {};
     			}
 
-				final long ij = (long)i << 32 | (long)j & 0x00ffffffff;
+				final long ij = (long)block_start << 32 | (long)block_end & 0x00ffffffff;
 				try {
 					thequeue.put(ij);
 				}
@@ -85,12 +85,12 @@ public class ParkingTicketsStats {
 				}
     			t = (++t) % nWorkers;
 
-    			if (available - a < c) {
-    				c = available - a;
+    			if (available - read_end < read_amount) {
+    				read_amount = available - read_end;
     			}
     		}
 
-	    	printInterval("Local initialization: read remaining of "+ a +" total bytes");
+	    	printInterval("Local initialization: read remaining of "+ read_end +" total bytes");
 
 	        for (t = 0; t < nWorkers; t++) {
 				try {
