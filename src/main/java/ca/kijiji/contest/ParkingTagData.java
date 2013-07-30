@@ -88,6 +88,10 @@ public class ParkingTagData {
 		return true;
 	}
 	
+	public Integer fineAmount() {
+		return new Integer(set_fine_amount);
+	}
+	
 	public String streetNameFromLocation2UsingRegex() {
 		// Using Canada Post's Find a Postal Code page as a rough reference for address components
 		
