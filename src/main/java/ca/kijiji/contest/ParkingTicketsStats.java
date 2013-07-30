@@ -78,7 +78,7 @@ public class ParkingTicketsStats {
     			block_end = read_end;
 
     			// don't offer the first (header) row
-    			if (block_start == 0) {
+    			if (bytes_read == read_amount) {
     				printInterval("First read");
     				while (data[block_start++] != '\n') {}
     			}
@@ -91,12 +91,15 @@ public class ParkingTicketsStats {
     			// subdivide block to minimize latency and improve work balancing
     			int sub_end = block_start;
     			int sub_start;
-    			for (int k = 1; k <= nWorkers; k++) {
+    			for (int k = 1; k <= 3 * nWorkers; k++) {
     				sub_start = sub_end;
-    				sub_end = block_start + (block_end - block_start) * k / nWorkers;
-    				if (k < nWorkers) {
+    				if (k < 2 * nWorkers) {
+        				sub_end = block_start + (block_end - block_start) * k / (3 * nWorkers);
     					while (data[--sub_end] != '\n') {}
     					sub_end++;
+    				}
+    				else {
+        				sub_end = block_end;
     				}
         			for (;;) {
     					try {
