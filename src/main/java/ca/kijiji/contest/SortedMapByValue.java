@@ -31,7 +31,7 @@ public class SortedMapByValue<K,V extends Comparable<V>> extends AbstractMap<K,V
 	// SortedMap Interface
 	
 	public Comparator<? super K> comparator() {
-		return null;
+		throw new UnsupportedOperationException();
 	}
 	
 	public SortedSet<Map.Entry<K,V>> entrySet() {
@@ -43,11 +43,11 @@ public class SortedMapByValue<K,V extends Comparable<V>> extends AbstractMap<K,V
 	}
 	
 	public SortedMap<K,V> headMap(K toKey) {
-		return null;
+		throw new UnsupportedOperationException();
 	}
 	
 	public Set<K> keySet() {
-		return null;
+		throw new UnsupportedOperationException();
 	}
 	
 	public K lastKey() {
@@ -55,15 +55,15 @@ public class SortedMapByValue<K,V extends Comparable<V>> extends AbstractMap<K,V
 	}
 	
 	public SortedMap<K,V> subMap(K fromKey, K toKey) {
-		return null;
+		throw new UnsupportedOperationException();
 	}
 	
 	public SortedMap<K,V> tailMap(K fromKey) {
-		return null;
+		throw new UnsupportedOperationException();
 	}
 	
 	public Collection<V> values() {
-		return null;
+		throw new UnsupportedOperationException();
 	}
 
 }
