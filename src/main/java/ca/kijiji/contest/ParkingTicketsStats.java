@@ -36,10 +36,10 @@ public class ParkingTicketsStats {
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
     	switch (threadingScheme) {
     		case SingleThreaded:
-    			return sortStreetByProfitabilityUsingSingleThread(parkingTicketsStream);
+    			return sortStreetsByProfitabilityUsingSingleThread(parkingTicketsStream);
     		
     		case MultiThreaded:
-    			return sortStreetByProfitabilityUsingMultipleThreads(parkingTicketsStream);
+    			return sortStreetsByProfitabilityUsingMultipleThreads(parkingTicketsStream);
     			
     		default:
     			throw new UnsupportedOperationException();
@@ -55,7 +55,7 @@ public class ParkingTicketsStats {
      * @param parkingTicketsStream
      * @return
      */
-    static SortedMap<String, Integer> sortStreetByProfitabilityUsingSingleThread(InputStream parkingTicketsStream) {
+    static SortedMap<String, Integer> sortStreetsByProfitabilityUsingSingleThread(InputStream parkingTicketsStream) {
     	BufferedReader parkingTicketsReader = null;
     	
     	try {
@@ -90,7 +90,7 @@ public class ParkingTicketsStats {
      * @param parkingTicketsStream
      * @return
      */
-    static SortedMap<String, Integer> sortStreetByProfitabilityUsingMultipleThreads(InputStream parkingTicketsStream) {
+    static SortedMap<String, Integer> sortStreetsByProfitabilityUsingMultipleThreads(InputStream parkingTicketsStream) {
     	BufferedReader parkingTicketsReader = null;
     	
     	try {
@@ -166,6 +166,12 @@ public class ParkingTicketsStats {
     	return sortedProfitabilityByStreet;
     }
     
+    /**
+     * The <code>TagDataChunkProcessor</code> Callable accepts a BufferedReader containing
+     * parking tickets data to be read line-by-line and parsed into data fields. It provides
+     * an unsorted HashMap of the parsed data for the caller to sort or combine with results
+     * from other <code>TagDataChunkProcessor</code> instances. 
+     */
     static class TagDataChunkProcessor implements Callable<HashMap<String, Integer>> {
     	
     	BufferedReader reader = null;
@@ -175,7 +181,7 @@ public class ParkingTicketsStats {
     		
     		this.reader = reader;
     	}
-    	
+
     	public HashMap<String, Integer> call() {
     		String line = null;
         	ParkingTagData data = new ParkingTagData();
