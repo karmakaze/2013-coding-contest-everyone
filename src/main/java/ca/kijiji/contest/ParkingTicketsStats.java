@@ -36,10 +36,10 @@ public class ParkingTicketsStats {
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
     	switch (threadingScheme) {
     		case SingleThreaded:
-    			return sortStreetByProfitabilityUsingSingleThreadWithRegex(parkingTicketsStream);
+    			return sortStreetByProfitabilityUsingSingleThread(parkingTicketsStream);
     		
     		case MultiThreaded:
-    			return sortStreetByProfitabilityUsingMultipleThreadsWithRegex(parkingTicketsStream);
+    			return sortStreetByProfitabilityUsingMultipleThreads(parkingTicketsStream);
     			
     		default:
     			throw new UnsupportedOperationException();
@@ -47,7 +47,7 @@ public class ParkingTicketsStats {
     }
     
     /**
-     * SingleThreadedWithRegex Approach
+     * SingleThreaded Approach
      * 
      * This approach uses a BufferedReader to read in from parkingTicketsStream line by line, parsing out
      * the street name and fine amount, and updating unsortedProfitabilityByStreet along the way.
@@ -55,7 +55,7 @@ public class ParkingTicketsStats {
      * @param parkingTicketsStream
      * @return
      */
-    static SortedMap<String, Integer> sortStreetByProfitabilityUsingSingleThreadWithRegex(InputStream parkingTicketsStream) {
+    static SortedMap<String, Integer> sortStreetByProfitabilityUsingSingleThread(InputStream parkingTicketsStream) {
     	BufferedReader parkingTicketsReader = null;
     	
     	try {
@@ -83,14 +83,14 @@ public class ParkingTicketsStats {
      * MultiThreadedWithRegex Approach
      * 
      * This approach reads in chars in approximately 10 MB chunks (always ending at the end of a line)
-     * on the main thread, and uses an ExecutorService to parse them.
+     * on the main thread, and uses an ExecutorService to manage TagDataChunkProcessor instances.
      * 
      * Based on http://stackoverflow.com/questions/2332537/producer-consumer-threads-using-a-queue
      * 
      * @param parkingTicketsStream
      * @return
      */
-    static SortedMap<String, Integer> sortStreetByProfitabilityUsingMultipleThreadsWithRegex(InputStream parkingTicketsStream) {
+    static SortedMap<String, Integer> sortStreetByProfitabilityUsingMultipleThreads(InputStream parkingTicketsStream) {
     	BufferedReader parkingTicketsReader = null;
     	
     	try {
