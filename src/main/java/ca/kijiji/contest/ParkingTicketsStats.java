@@ -23,7 +23,8 @@ public class ParkingTicketsStats {
 	static final int UNUSED_BITS = 32 - BITS;
 	static final int SIZE = 1 << BITS;
 	static final int MASK = SIZE - 1;
-	static final AtomicReferenceArray<String> keys = new AtomicReferenceArray<String>(SIZE);
+//	static final AtomicReferenceArray<String> keys = new AtomicReferenceArray<String>(SIZE);
+	static final String[] keys = new String[SIZE];
 	static final AtomicIntegerArray vals = new AtomicIntegerArray(SIZE);
 	static volatile byte[] data;
 
@@ -137,7 +138,7 @@ public class ParkingTicketsStats {
     	    		int v = vals.get(i);
     	    		if (v != 0) {
     	    			synchronized (sorted) {
-    		    			sorted.put(keys.get(i), v);
+    		    			sorted.put(keys[i], v);
     	    			}
     	    		}
     	    	}
@@ -151,7 +152,7 @@ public class ParkingTicketsStats {
     	    		int v = vals.get(i);
     	    		if (v != 0) {
     	    			synchronized (sorted) {
-    		    			sorted.put(keys.get(i), v);
+    		    			sorted.put(keys[i], v);
     	    			}
     	    		}
     	    	}
@@ -295,7 +296,7 @@ public class ParkingTicketsStats {
 		int i = hash(k);
 
 		if (vals.getAndAdd(i, d) == 0) {
-			keys.set(i, k);
+			keys[i] = k;
 		}
 		// uncomment below to print hash collisions
 //		else {
