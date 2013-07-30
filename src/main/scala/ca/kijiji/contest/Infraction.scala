@@ -1,38 +1,29 @@
 package ca.kijiji.contest
 
-import java.util.Date
-
-class Infraction(val id:String, val date:String, val code:Int, val desc:String, val amt:Int,
-                 val time:String, val loc1:String, val loc2:String, val loc3:String, val loc4:String, val prov:String)
-{
-  override def toString = "$" + amt + " at " + loc2
-
-  def toParkingInfraction = new ParkingInfraction(Infraction.extractStreet(loc2),amt)
-}
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 object Infraction
 {
-  def fromCSV(csv:Array[String]): Infraction = {
-    println(csv.mkString(" "))
-    new Infraction(csv(0),csv(1), csv(2).toInt, csv(3), csv(4).toInt, csv(5),
-                   csv(6), csv(7), csv(8), csv(9), csv(10))
-  }
-
-  def fromString(line:String) : ParkingInfraction = {
+  def fromString(line:String) : Infraction = {
     val csv = line.split(',')
     if(csv.length < 8)
-      println(line)
-    new ParkingInfraction(Infraction.extractStreet(csv(7)), csv(4).toInt)
+      log.error("Cannot parse line : \n" + line)
+    
+    new Infraction(extractStreet(csv(StreetIndex)), csv(AmountIndex).toInt)
   }
 
   def extractStreet(address:String):String = {
     var arr = address.split(' ')
-    if(arr.length > 1)
-    {
+    if(arr.length > 1) {
+      //if there is a number
       if(isAllDigits(arr(0)))
         arr = arr.drop(1)
+
+      //if it ends with an orientation
       if(isOrientation(arr(arr.length - 1)))
         arr = arr.dropRight(2)
+      //if not, the suffix
       else
         arr = arr.dropRight(1)
     }
@@ -41,9 +32,13 @@ object Infraction
 
   private def isAllDigits(x: String) = x forall Character.isDigit
   private def isOrientation(x: String) = List("N", "S", "E", "W", "EAST", "WEST").contains(x)
+  private final val StreetIndex = 7
+  private final val AmountIndex = 4
+
+  private final val log : Logger = LoggerFactory.getLogger(classOf[Infraction])
 }
 
-class ParkingInfraction(val street:String, val amount:Int)
+class Infraction(val street:String, val amount:Int)
 {
   override def toString = "$" + amount + " on " + street
 }
