@@ -18,11 +18,7 @@ public class ParkingTagData {
 		super();
 	}
 	
-	public String streetNameFromLocation2() {
-		return streetNameFromLocationStringUsingRegex(location2);
-	}
-	
-	public String streetNameFromLocationStringUsingRegex(String str) {
+	public String streetNameFromLocation2UsingRegex() {
 		// Using Canada Post's Find a Postal Code page as a rough reference for address components
 		
 		final String streetNumberPatternString = "([i\\d$\\(/-]*)";
@@ -38,7 +34,7 @@ public class ParkingTagData {
 				streetDirectionPatternString
 				);
 		
-		Matcher matcher = locationPattern.matcher(str);
+		Matcher matcher = locationPattern.matcher(location2);
     	if (matcher.matches()) {
     		//System.out.println(str + "," + matcher.group(2));
     		return matcher.group(2).trim();

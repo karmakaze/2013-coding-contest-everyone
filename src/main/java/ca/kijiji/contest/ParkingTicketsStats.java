@@ -8,7 +8,11 @@ import java.util.SortedMap;
 public class ParkingTicketsStats {
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
-        ParkingTagsReader reader = new ParkingTagsReader(parkingTicketsStream, false);
+        return sortStreetByProfitabilityUsingSingleCoreWithRegex(parkingTicketsStream);
+    }
+    
+    static SortedMap<String, Integer> sortStreetByProfitabilityUsingSingleCoreWithRegex(InputStream parkingTicketsStream) {
+    	ParkingTagsReader reader = new ParkingTagsReader(parkingTicketsStream, false);
         ParkingTagData data = new ParkingTagData();
         HashMap<String, Integer> unsortedProfitabilityByStreet = new HashMap<String, Integer>();
         
@@ -19,7 +23,7 @@ public class ParkingTicketsStats {
         }
         
         while (reader.readTag(data)) {
-        	String streetName = data.streetNameFromLocation2();
+        	String streetName = data.streetNameFromLocation2UsingRegex();
         	
         	if (streetName != null) {
         		Integer totalFine = unsortedProfitabilityByStreet.get(streetName);
@@ -36,6 +40,6 @@ public class ParkingTicketsStats {
         sortedProfitabilityByStreet.entrySet().addAll(unsortedProfitabilityByStreet.entrySet());
         
         return sortedProfitabilityByStreet;
-    } 
+    }
     
 }
