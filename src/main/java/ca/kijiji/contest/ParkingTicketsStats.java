@@ -16,24 +16,29 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 public class ParkingTicketsStats {
+
+	public enum Threading {
+		SingleThreaded,
+		MultiThreaded
+	}
 	
-	public enum Approach {
-		SingleThreadedWithRegex,
-		MultiThreadedWithRegex,
-		SingleThreadedWithComponents,
-		MultiThreadedWithComponents
+	public enum Parsing {
+		Regex,
+		Components
 	}
 	
 	final static boolean parseSignificantDataOnly = true;
 	final static int dataChunkSize = 10 * 1024 * 1024;
-	final static Approach approach = Approach.MultiThreadedWithRegex;
+	
+	final static Threading threadingScheme = Threading.MultiThreaded;
+	final static Parsing parsingScheme = Parsing.Regex;
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
-    	switch (approach) {
-    		case SingleThreadedWithRegex:
+    	switch (threadingScheme) {
+    		case SingleThreaded:
     			return sortStreetByProfitabilityUsingSingleThreadWithRegex(parkingTicketsStream);
     		
-    		case MultiThreadedWithRegex:
+    		case MultiThreaded:
     			return sortStreetByProfitabilityUsingMultipleThreadsWithRegex(parkingTicketsStream);
     			
     		default:
