@@ -14,7 +14,7 @@ import java.util.SortedMap;
  *
  */
 public class ParkingTicketsStats {
-	public final static int algorithm = 1;
+	public final static int algorithm = 4;
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(final InputStream parkingTicketsStream) {
     	switch (algorithm) {
@@ -23,6 +23,8 @@ public class ParkingTicketsStats {
     	case 2: return ParkingTicketsStats2.sortStreetsByProfitability(parkingTicketsStream);
 
     	case 3: return ParkingTicketsStats3.sortStreetsByProfitability(parkingTicketsStream);
+
+    	case 4: return ParkingTicketsStats4.sortStreetsByProfitability(parkingTicketsStream);
 
         default: throw new IllegalStateException("Selected algorithm "+ algorithm +" has no implementation.");
     	}
