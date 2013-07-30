@@ -1,45 +1,80 @@
 package ca.kijiji.contest;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.SortedMap;
 
 public class ParkingTicketsStats {
+	
+	public enum Approach {
+		SingleThreadedWithRegex,
+		MultiThreadedWithRegex,
+		SingleThreadedWithComponents,
+		MultiThreadedWithComponents
+	}
+	
+	final static boolean parseSignificantDataOnly = true;
+	final static Approach approach = Approach.SingleThreadedWithRegex;
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
-        return sortStreetByProfitabilityUsingSingleCoreWithRegex(parkingTicketsStream);
+    	switch (approach) {
+    		case SingleThreadedWithRegex:
+    			return sortStreetByProfitabilityUsingSingleThreadWithRegex(parkingTicketsStream);
+    		
+    		case MultiThreadedWithRegex:
+    			return sortStreetByProfitabilityUsingMultipleThreadsWithRegex(parkingTicketsStream);
+    			
+    		default:
+    			throw new UnsupportedOperationException();
+    	}
     }
     
-    static SortedMap<String, Integer> sortStreetByProfitabilityUsingSingleCoreWithRegex(InputStream parkingTicketsStream) {
-    	ParkingTagsReader reader = new ParkingTagsReader(parkingTicketsStream, false);
-        ParkingTagData data = new ParkingTagData();
-        HashMap<String, Integer> unsortedProfitabilityByStreet = new HashMap<String, Integer>();
-        
-        try {
-        	reader.start();
+    static SortedMap<String, Integer> sortStreetByProfitabilityUsingSingleThreadWithRegex(InputStream parkingTicketsStream) {
+    	BufferedReader parkingTicketsReader = null;
+    	
+    	try {
+        	parkingTicketsReader = new BufferedReader(new InputStreamReader(parkingTicketsStream, "ascii"));
+        	parkingTicketsReader.readLine();
         } catch (IOException ioe) {
         	return null;
         }
         
-        while (reader.readTag(data)) {
-        	String streetName = data.streetNameFromLocation2UsingRegex();
-        	
-        	if (streetName != null) {
-        		Integer totalFine = unsortedProfitabilityByStreet.get(streetName);
-        		if (totalFine == null) {
-        			totalFine = new Integer(data.set_fine_amount);
-        		} else {
-        			totalFine = totalFine + Integer.decode(data.set_fine_amount);
-        		}
-        		unsortedProfitabilityByStreet.put(streetName, totalFine);
-        	}
+    	String line = null;
+    	ParkingTagData data = new ParkingTagData();
+    	String streetName = null;
+    	Integer totalFine = null;
+        HashMap<String, Integer> unsortedProfitabilityByStreet = new HashMap<String, Integer>();
+    	
+        try {
+        	while ((line = parkingTicketsReader.readLine()) != null) {
+            	if (data.updateFromDataLine(line, parseSignificantDataOnly)) {
+            		if ((streetName = data.streetNameFromLocation2UsingRegex()) != null) {
+            			totalFine = unsortedProfitabilityByStreet.get(streetName);
+            			totalFine = (totalFine != null) ? totalFine + data.fineAmount() : data.fineAmount();
+            			
+            			unsortedProfitabilityByStreet.put(streetName,  totalFine);
+            		}
+            	}
+            }
+        } catch (IOException ioe) {
+        	return null;
         }
+        
         
         SortedMapByValue<String, Integer> sortedProfitabilityByStreet = new SortedMapByValue<String, Integer>();
         sortedProfitabilityByStreet.entrySet().addAll(unsortedProfitabilityByStreet.entrySet());
         
         return sortedProfitabilityByStreet;
+    }
+    
+    // 2: Multiple threads and regex
+    // Based on http://stackoverflow.com/questions/2332537/producer-consumer-threads-using-a-queue
+    
+    static SortedMap<String, Integer> sortStreetByProfitabilityUsingMultipleThreadsWithRegex(InputStream parkingTicketsStream) {
+    	return null;
     }
     
 }
