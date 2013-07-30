@@ -1,6 +1,7 @@
 package ca.kijiji.contest;
 
 import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
@@ -26,6 +27,14 @@ public class OpenStringIntHashMap {
 		hashAndValues = new AtomicIntegerArray(2*capacity);
 		pad7 = pad6 = pad5 = pad4 = pad3 = pad2 = pad1 = 7;
 		Pad1 = Pad2 = Pad3 = Pad4 = Pad5 = Pad6 = Pad7 = 7;
+	}
+
+	public void clear() {
+		Arrays.fill(keys, 0);
+		int n2 = 2 * keys.length;
+		for (int i = 0; i < n2; i++) {
+			hashAndValues.set(i, 0);
+		}
 	}
 
 	public int get(String key) {
@@ -136,6 +145,17 @@ public class OpenStringIntHashMap {
 					dest.put(key, hashAndValues.get(i*2 + 1));
 				}
 				i++;
+			}
+		}
+	}
+
+	protected void putRangeTo(int start, int end, Map<String, Integer> dest) {
+		for (int i = start; i < end; i++) {
+			String key = keys[i];
+			if (key != null) {
+				synchronized (dest) {
+					dest.put(key, hashAndValues.get(i*2 + 1));
+				}
 			}
 		}
 	}

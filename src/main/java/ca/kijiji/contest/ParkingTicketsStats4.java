@@ -2,26 +2,17 @@ package ca.kijiji.contest;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ParkingTicketsStats4 {
 
-	// 23-bit indices (8M possible entries)
-	static final int BITS = 23;
-	static final int UNUSED_BITS = 32 - BITS;
-	static final int SIZE = 1 << BITS;
-	static final int MASK = SIZE - 1;
-	static final String[] keys = new String[SIZE];
-	static final AtomicIntegerArray vals = new AtomicIntegerArray(SIZE);
 	static final byte[] data = new byte[2 * 1024 * 1024];
 
 	static final Pattern namePattern = Pattern.compile("([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)");
@@ -30,7 +21,9 @@ public class ParkingTicketsStats4 {
 	static final int nWorkers = Runtime.getRuntime().availableProcessors();
 
 	// use small blocking queue size to limit read-ahead for higher cache hits
-	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(2 * nWorkers - 1, false);
+	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(2 * nWorkers - 3, true);
+	static final int SIZE = 12800;
+    static final OpenStringIntHashMap themap = new OpenStringIntHashMap(SIZE); // 8770
 	static final int[] END_OF_WORK = new int[0];
 
 	static volatile boolean wasrun;
@@ -39,10 +32,7 @@ public class ParkingTicketsStats4 {
     	printInterval("Pre-initialization");
 
     	if (wasrun) {
-    		Arrays.fill(keys, 0);
-	    	for (int i = 0; i < SIZE; i++) {
-	    		vals.set(i, 0);
-	    	}
+    		themap.clear();
     	}
     	else {
     		wasrun = true;
@@ -70,7 +60,7 @@ public class ParkingTicketsStats4 {
     		int read_end = 0;
     		int block_start = 0;
     		int block_end = 0;
-    		for (int read_amount = 128 * 1024; (read_amount = parkingTicketsStream.read(data, read_end, read_amount)) > 0; ) {
+    		for (int read_amount = 256 * 1024; (read_amount = parkingTicketsStream.read(data, read_end, read_amount)) > 0; ) {
     			bytes_read += read_amount;
     			read_end += read_amount;
     			block_start = block_end;
@@ -148,7 +138,7 @@ public class ParkingTicketsStats4 {
 
     	final SortedMap<String, Integer> sorted = new TreeMap<String, Integer>(new Comparator<String>() {
 			public int compare(String o1, String o2) {
-				int c = get(o2) - get(o1);
+				int c = themap.get(o2) - themap.get(o1);
 				if (c != 0) return c;
 				return o2.compareTo(o1);
 			}});
@@ -160,14 +150,7 @@ public class ParkingTicketsStats4 {
 
         	threads[t] = new Thread(null, null, "gather"+ t, 2048) {
         		public void run() {
-        	    	for (int i = start; i < end; i++) {
-        	    		int v = vals.get(i);
-        	    		if (v != 0) {
-        	    			synchronized (sorted) {
-        		    			sorted.put(keys[i], v);
-        	    			}
-        	    		}
-        	    	}
+    				themap.putRangeTo(start, end, sorted);
         		}
         	};
         	threads[t].start();
@@ -231,7 +214,7 @@ public class ParkingTicketsStats4 {
 			    		nameMatcher.reset(location);
 			    		if (nameMatcher.find()) {
 			    			final String name = nameMatcher.group();
-			    			add(name, fine);
+			    			themap.adjustOrPutValue(name, fine);
 		    			}
 					}
 				}
@@ -246,43 +229,6 @@ public class ParkingTicketsStats4 {
 			}
 		}
     }
-
-	public static int hash(String k) {
-		int h = 0;
-		for (char c : k.toCharArray()) {
-			if (h < 0 || h > MASK) {
-				h = (h & MASK) ^ (h >>> BITS);
-			}
-			int i = (c == ' ') ? 0 : (int)c & 0x00FF - 64;
-			h = h * 47 + i;
-		}
-		return h & MASK;
-	}
-
-	public static void add(final String k, final int d) {
-		int i = hash(k);
-
-		if (vals.getAndAdd(i, d) == 0) {
-			keys[i] = k;
-		}
-		// use code below instead of if() above to show hash collisions
-//		if (vals.getAndAdd(i, d) != 0) {
-//			synchronized (keys) {
-//				String k0 = keys[i];
-//				if (!k.equals(k0)) {
-//					println("Key hash clash: first "+ k0 +" and "+ k);
-//				}
-//			}
-//		}
-//		else {
-//			keys[i] = k;
-//		}
-	}
-
-	public static int get(final String k) {
-		int i = hash(k);
-		return vals.get(i);
-	}
 
     static volatile long lastTime = System.currentTimeMillis();
 
