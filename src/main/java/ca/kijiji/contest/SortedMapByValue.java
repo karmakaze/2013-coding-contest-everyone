@@ -22,7 +22,7 @@ public class SortedMapByValue<K,V extends Comparable<V>> extends AbstractMap<K,V
 			new Comparator<Map.Entry<K,V>>() {
 				@Override
 				public int compare(Map.Entry<K,V> e1, Map.Entry<K,V> e2) {
-					return e1.getValue().compareTo(e2.getValue());
+					return e2.getValue().compareTo(e1.getValue());
 				}
 			}
 		);
