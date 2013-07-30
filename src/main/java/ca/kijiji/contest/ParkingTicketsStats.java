@@ -14,10 +14,12 @@ import java.util.SortedMap;
  *
  */
 public class ParkingTicketsStats {
-	public final static int algorithm = 2;
+	public final static int algorithm = 1;
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(final InputStream parkingTicketsStream) {
     	switch (algorithm) {
+    	case 1: return ParkingTicketsStats1.sortStreetsByProfitability(parkingTicketsStream);
+
     	case 2: return ParkingTicketsStats2.sortStreetsByProfitability(parkingTicketsStream);
 
     	case 3: return ParkingTicketsStats3.sortStreetsByProfitability(parkingTicketsStream);
