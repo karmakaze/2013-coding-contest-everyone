@@ -7,15 +7,25 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.Map;
 import java.util.SortedSet;
+import java.util.TreeSet;
 
 //Based on [TreeMap sort by value](http://stackoverflow.com/questions/2864840/treemap-sort-by-value).
 
-public class SortedMapByValue<K,V> extends AbstractMap<K,V> implements SortedMap<K,V> {
+public class SortedMapByValue<K,V extends Comparable<V>> extends AbstractMap<K,V> implements SortedMap<K,V> {
 	
 	private SortedSet<Map.Entry<K,V>> _entrySet;
 	
 	public SortedMapByValue() {
 		super();
+		
+		_entrySet = new TreeSet<Map.Entry<K,V>>(
+			new Comparator<Map.Entry<K,V>>() {
+				@Override
+				public int compare(Map.Entry<K,V> e1, Map.Entry<K,V> e2) {
+					return e1.getValue().compareTo(e2.getValue());
+				}
+			}
+		);
 	}
 	
 	// SortedMap Interface
