@@ -14,14 +14,15 @@ import java.util.SortedMap;
  *
  */
 public class ParkingTicketsStats {
-	public final static int algorithm = 3;
+	public final static int algorithm = 2;
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(final InputStream parkingTicketsStream) {
     	switch (algorithm) {
-    	case 3:
-        	return ParkingTicketsStats3.sortStreetsByProfitability(parkingTicketsStream);
-        default:
-        	throw new IllegalStateException("Selected algorithm "+ algorithm +" has no implementation.");
+    	case 2: return ParkingTicketsStats2.sortStreetsByProfitability(parkingTicketsStream);
+
+    	case 3: return ParkingTicketsStats3.sortStreetsByProfitability(parkingTicketsStream);
+
+        default: throw new IllegalStateException("Selected algorithm "+ algorithm +" has no implementation.");
     	}
     }
 }
