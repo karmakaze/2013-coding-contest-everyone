@@ -1,12 +1,16 @@
 package ca.kijiji.contest;
 
 import java.util.AbstractMap;
+import java.util.AbstractSet;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.SortedSet;
-import java.util.TreeSet;
 
 /**
  * A bastardized implementation of the SortedMap interface which supports lookup
@@ -18,7 +22,60 @@ import java.util.TreeSet;
  */
 public class SortedByValueMap<K, V extends Comparable<V>> extends AbstractMap<K, V> implements SortedMap<K, V> {
 
-  private SortedSet<Map.Entry<K, V>> entrySet;
+  /**
+   * Implements the SortedSet interface by providing the elements of a list in
+   * that list's iteration order. The list is assumed to be pre-sorted according to
+   * whatever criteria are important to the user. The {@code add()} operation is
+   * not supported, so the set should remain sorted as long as the items it
+   * contains are not modified in place.
+   *
+   * @author Jonathan Fuerth <jfuerth@redhat.com>
+   */
+  private final class OrderedSet<E> extends AbstractSet<E> implements SortedSet<E> {
+
+    private final List<E> elements;
+
+    public OrderedSet(List<E> elements) {
+      this.elements = elements;
+    }
+
+    @Override
+    public Iterator<E> iterator() {
+      return elements.iterator();
+    }
+
+    @Override
+    public int size() {
+      return elements.size();
+    }
+
+    public Comparator<? super E> comparator() {
+      return null;
+    }
+
+    public OrderedSet<E> subSet(E fromElement, E toElement) {
+      return new OrderedSet<E>(elements.subList(elements.indexOf(fromElement), elements.indexOf(toElement)));
+    }
+
+    public OrderedSet<E> headSet(E toElement) {
+      return new OrderedSet<E>(elements.subList(0, elements.indexOf(toElement)));
+    }
+
+    public OrderedSet<E> tailSet(E fromElement) {
+      return new OrderedSet<E>(elements.subList(elements.indexOf(fromElement), elements.size()));
+    }
+
+    public E first() {
+      return elements.get(0);
+    }
+
+    public E last() {
+      return elements.get(elements.size() - 1);
+    }
+
+  }
+
+  private final OrderedSet<Map.Entry<K, V>> entrySet;
 
   /**
    * Creates a new sorted-by-value map from the given collection of map entry
@@ -33,12 +90,17 @@ public class SortedByValueMap<K, V extends Comparable<V>> extends AbstractMap<K,
    *          The entries this map should have. Must not be null.
    */
   public SortedByValueMap(Collection<Map.Entry<K, V>> entries) {
-    this.entrySet = new TreeSet<Map.Entry<K,V>>(new Comparator<Map.Entry<K,V>>() {
+    List<Map.Entry<K, V>> sortedEntries = new ArrayList<Map.Entry<K,V>>(entries);
+    Collections.sort(sortedEntries, new Comparator<Map.Entry<K,V>>() {
       public int compare(java.util.Map.Entry<K, V> o1, java.util.Map.Entry<K, V> o2) {
         return o2.getValue().compareTo(o1.getValue());
       }
     });
-    this.entrySet.addAll(entries);
+    this.entrySet = new OrderedSet<Map.Entry<K,V>>(sortedEntries);
+  }
+
+  private SortedByValueMap(OrderedSet<Map.Entry<K, V>> backingSet) {
+    entrySet = backingSet;
   }
 
   /**
@@ -51,15 +113,55 @@ public class SortedByValueMap<K, V extends Comparable<V>> extends AbstractMap<K,
   }
 
   public SortedMap<K, V> subMap(K fromKey, K toKey) {
-    throw new UnsupportedOperationException();
+    Iterator<Map.Entry<K, V>> it = entrySet.iterator();
+    Map.Entry<K, V> fromElement = null;
+    while (it.hasNext() && fromElement == null) {
+      Map.Entry<K, V> entry = it.next();
+      if (entry.getKey().equals(fromKey)) {
+        fromElement = entry;
+      }
+    }
+    Map.Entry<K, V> toElement = null;
+    while (it.hasNext() && toElement == null) {
+      Map.Entry<K, V> entry = it.next();
+      if (entry.getKey().equals(toKey)) {
+        toElement = entry;
+      }
+    }
+    if (fromElement == null || toElement == null) {
+      throw new IllegalArgumentException("SortedByValueMap requires exact key matches for submaps");
+    }
+    return new SortedByValueMap<K, V>(entrySet.subSet(fromElement, toElement));
   }
 
   public SortedMap<K, V> headMap(K toKey) {
-    throw new UnsupportedOperationException();
+    Iterator<Map.Entry<K, V>> it = entrySet.iterator();
+    Map.Entry<K, V> toElement = null;
+    while (it.hasNext() && toElement == null) {
+      Map.Entry<K, V> entry = it.next();
+      if (entry.getKey().equals(toKey)) {
+        toElement = entry;
+      }
+    }
+    if (toElement == null) {
+      throw new IllegalArgumentException("SortedByValueMap requires exact key matches for submaps");
+    }
+    return new SortedByValueMap<K, V>(entrySet.headSet(toElement));
   }
 
   public SortedMap<K, V> tailMap(K fromKey) {
-    throw new UnsupportedOperationException();
+    Iterator<Map.Entry<K, V>> it = entrySet.iterator();
+    Map.Entry<K, V> fromElement = null;
+    while (it.hasNext() && fromElement == null) {
+      Map.Entry<K, V> entry = it.next();
+      if (entry.getKey().equals(fromKey)) {
+        fromElement = entry;
+      }
+    }
+    if (fromElement == null) {
+      throw new IllegalArgumentException("SortedByValueMap requires exact key matches for submaps");
+    }
+    return new SortedByValueMap<K, V>(entrySet.tailSet(fromElement));
   }
 
   /**
