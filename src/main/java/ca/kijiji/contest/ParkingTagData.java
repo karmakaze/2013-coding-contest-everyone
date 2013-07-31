@@ -155,7 +155,7 @@ public class ParkingTagData {
 		// From the end of the components, eliminate anything less 2 characters or less,
 		// or is in the set of street types
 		int end = components.length - 1;
-		while (end > start && components[end].length() > 2 && !streetTypes.contains(components[end])) {
+		while (end > start && (components[end].length() <= 2 || streetTypes.contains(components[end]))) {
 			end--;
 		}
 		
