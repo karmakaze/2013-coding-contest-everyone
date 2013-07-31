@@ -2,13 +2,12 @@ require 'process_infraction_task'
 
 class ThreadedRunner   
 
-   def initialize(reader, task, pool_size: 4, batch_size: 1000, timeout: 600, error_handler: IgnoreHandler.new)
+   def initialize(reader, task, pool_size: 4, batch_size: 1000, timeout: 600)
       @reader = reader
       @task = task
       @pool_size = pool_size
       @batch_size = batch_size
       @timeout = timeout
-      @error_handler = error_handler
    end
 
    def run!
@@ -41,16 +40,6 @@ class ThreadedRunner
 
 private
 
-   class IgnoreHandler
-      def handle_malformed_csv_error(runner, error, row)
-         # no-op
-      end
-
-      def handle_parse_error(data)
-         # no-op
-      end
-   end
-
    class TaskGroupHandler
       include java.lang.Runnable
 
@@ -65,8 +54,12 @@ private
 
    attr_reader :pool_size, :timeout, :error_handler
 
+   def queue
+      @queue ||= java.util.concurrent.LinkedBlockingQueue.new(10000)
+   end
+
    def pool
-      @pool ||= java.util.concurrent.Executors.newFixedThreadPool(pool_size)
+      @pool ||= java.util.concurrent.ThreadPoolExecutor.new(pool_size, pool_size, 10, java.util.concurrent.TimeUnit::SECONDS, queue)
    end
 
    def emit(tasks)
