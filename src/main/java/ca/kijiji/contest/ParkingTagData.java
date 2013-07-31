@@ -20,22 +20,31 @@ public class ParkingTagData {
 	public String location4;				// *
 	public String province;					// 2
 	
-	final String streetNumberPatternString = "([i\\d$\\(/-]*)";
-	final String streetNamePatternString = "([a-zA-Z '-]+)";
-	final String streetTypePatternString = 
-			"(AV|AVE|AVENUE|BL|BLVD|BVLD|CIR|CIRC|CIRCL|CIRCLE|CIRT|CIRCUIT|COURT|CR|CRCL|CRT|CRES|CT|DR|DRIVE|GARDEN|GARDENS|GDNS|GR|GRV|GRDNS|GROVE|GT|HILL|HTS|KEEP|LANE|LINE|LODGE|LN|LWN|MALL|MEWS|PARKWAY|PATH|PARK|PK|PKWY|PL|PLACE|POINT|PROMENADE|PT|PTWY|QUAY|RAOD|RD|ROAD|ROWN|SQ|SQUARE|ST|STREET|TER|TERR|TERRACE|TR|TRAIL|TRL|VIEW|VISTA|WALK|WAY|WAYS|WOOD)\\.?";
-	final String streetDirectionPatternString = "([NESW]?)";
-	
-	final Pattern locationPattern = Pattern.compile(
+	static {
+		String streetNumberPatternString = "([i\\d$\\(/-]*)";
+		String streetNamePatternString = "([a-zA-Z '-]+)";
+		String streetTypePatternString = 
+				"(AV|AVE|AVENUE|BL|BLVD|BVLD|CIR|CIRC|CIRCL|CIRCLE|CIRT|CIRCUIT|COURT|CR|CRCL|CRT|CRES|CT|DR|DRIVE|GARDEN|GARDENS|GDNS|GR|GRV|GRDNS|GROVE|GT|HILL|HTS|KEEP|LANE|LINE|LODGE|LN|LWN|MALL|MEWS|PARKWAY|PATH|PARK|PK|PKWY|PL|PLACE|POINT|PROMENADE|PT|PTWY|QUAY|RAOD|RD|ROAD|ROWN|SQ|SQUARE|ST|STREET|TER|TERR|TERRACE|TR|TRAIL|TRL|VIEW|VISTA|WALK|WAY|WAYS|WOOD)\\.?";
+		String streetDirectionPatternString = "([NESW]?)";
+		
+		digitPattern = Pattern.compile("\\p{Nd}");
+		locationPattern = Pattern.compile(
 			streetNumberPatternString + " ?" +
 			streetNamePatternString + " ?" +
 			streetTypePatternString + " ?" +
 			streetDirectionPatternString
-			);
+		);
+	}
 	
-	final HashSet<String> streetTypes = new HashSet<String>(Arrays.asList(
-			new String[] {"AVE", "AVENUE", "BLVD", "BVLD", "CIR", "CIRC", "CIRCL", "CIRCLE", "CIRT", "CIRCUIT", "COURT", "CRCL", "CRT", "CRES", "DRIVE", "GARDEN", "GARDENS", "GDNS", "GRV", "GRDNS", "GROVE", "HILL", "HTS", "KEEP", "LANE", "LINE", "LODGE", "LWN", "MALL", "MEWS", "PARKWAY", "PATH", "PARK", "PKWY", "PLACE", "POINT", "PROMENADE", "PTWY", "QUAY", "RAOD", "RD", "ROAD", "ROWN", "SQUARE", "STREET", "TER", "TERR", "TERRACE", "TRAIL", "TRL", "VIEW", "VISTA", "WALK", "WAY", "WAYS", "WOOD"}
-			));
+	static HashSet<String> streetTypes = new HashSet<String>(Arrays.asList(
+		new String[] {"AVE", "AVENUE", "BLVD", "BVLD", "CIR", "CIRC", "CIRCL", "CIRCLE", "CIRT", "CIRCUIT", "COURT", "CRCL", "CRT", "CRES", "DRIVE", "GARDEN", "GARDENS", "GDNS", "GRV", "GRDNS", "GROVE", "HILL", "HTS", "KEEP", "LANE", "LINE", "LODGE", "LWN", "MALL", "MEWS", "PARKWAY", "PATH", "PARK", "PKWY", "PLACE", "POINT", "PROMENADE", "PTWY", "QUAY", "RAOD", "RD", "ROAD", "ROWN", "SQUARE", "STREET", "TER", "TERR", "TERRACE", "TRAIL", "TRL", "VIEW", "VISTA", "WALK", "WAY", "WAYS", "WOOD"}
+	));
+	
+	static Pattern locationPattern;
+	static Pattern digitPattern;
+			
+	private Matcher locationMatcher = locationPattern.matcher("");
+	private Matcher digitMatcher = digitPattern.matcher("");
 	
 	public ParkingTagData() {
 		super();
@@ -146,7 +155,6 @@ public class ParkingTagData {
 		String[] components = location2.split(" ");
 		
 		// From the start of the components, eliminate anything containing numbers
-		Pattern digitPattern = Pattern.compile("\\p{Nd}");
 		int start = 0;
 		while (start < components.length && digitPattern.matcher(components[start]).find()) {
 			start++;
