@@ -104,10 +104,12 @@ public class ParkingTicketsStats {
       }
     }
     LOG.info("Result combination time: {}", System.currentTimeMillis() - startTime);
+    LOG.debug("Number of streets before sorting by value: {}", combinedResults.size());
 
     startTime = System.currentTimeMillis();
     SortedMap<String, Integer> result = new SortedByValueMap<String, Integer>(combinedResults.values());
     LOG.info("Combined result sort time: {}", System.currentTimeMillis() - startTime);
+    LOG.debug("Number of streets after sorting by value: {}", result.size());
 
     if (LOG.isDebugEnabled()) {
       for (Map.Entry<String, Integer> entry : result.entrySet()) {
