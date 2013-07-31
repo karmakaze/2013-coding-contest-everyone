@@ -1,65 +1,61 @@
-package com.lishid.kijiji.contest.mapred;
+package com.lishid.kijiji.contest;
 
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
 
+import com.lishid.kijiji.contest.mapred.MapTask;
+import com.lishid.kijiji.contest.mapred.ReduceTask;
+import com.lishid.kijiji.contest.mapred.TaskTracker;
 import com.lishid.kijiji.contest.mapred.MapTask.MapperResultCollector;
 import com.lishid.kijiji.contest.mapred.ReduceTask.ReducerResultCollector;
 import com.lishid.kijiji.contest.util.ByteArrayReader;
 import com.lishid.kijiji.contest.util.LargeChunkReader;
 import com.lishid.kijiji.contest.util.ParkingTicketTreeMap;
 
+/**
+ * This implementation uses the technique "MapReduce" to parallelize work by first performing independent
+ * Map operations, then independent Reduce operations, and finally merging the result. <br>
+ * More information on each step are located at {@link MapTask#performTask()} and {@link ReduceTask#performTask()} <br>
+ * <br>
+ * An optimization technique used here is avoiding the use of String operations as much as possible since it
+ * allocates temporary char[], which can be optimized by reusing the same char[] the buffered reading process used. <br>
+ * <br>
+ * In fact, after optimizing even more, it is obvious that object allocation reduction is key to eliminate slow speeds.
+ * From this idea, MutableInteger is created to combat the issue where HashMap values of Integer are continuously created.
+ * 
+ * @author lishid
+ */
 public class MapReduceProcessor {
     
     // Tweakable variables
     private static final int AVAILABLE_CORES = Runtime.getRuntime().availableProcessors();
-    // private static final int AVAILABLE_CORES = 4;
-    private static final int MAPPER_CHUNK_SIZE = 1 << 18; // 2097152 (seemed like the best value on my setup)
+    /** The size of the buffer to use for all mappers */
+    private static final int MAPPER_CHUNK_SIZE = 1 << 18;
+    /** The number of reducers to run, also the number of partitions the mappers will split the results into */
     private static final int PARTITIONS = AVAILABLE_CORES;
     
-    /**
-     * This implementation uses a technique similar to "MapReduce" to parallelize work by first performing independent
-     * Map operations, then independent Reduce operations, and finally merging the result. <br>
-     * More information on each step are located at {@link MapTask#performTask()} and {@link ReduceTask#performTask()} <br>
-     * <br>
-     * An optimization technique used here is avoiding the use of String operations as much as possible since it
-     * allocates temporary char[], which can be optimized by reusing the same char[] the buffered reading process used. <br>
-     * <br>
-     * In fact, after optimizing even more, it is obvious that object allocation reduction is key to eliminate slow speeds.
-     * From this idea, MutableInteger is created to combat the issue where HashMap values of Integer are continuously created.
-     */
     public SortedMap<String, Integer> sortStreetsByProfitability(InputStream inputStream) throws Exception {
+        // Leave a core free for IO until inputs have been fully read
         TaskTracker taskTracker = new TaskTracker(AVAILABLE_CORES - 1);
         
-        List<MapperResultCollector> mapperResults = map(taskTracker, inputStream);
-        List<ReducerResultCollector> reducerResults = reduce(taskTracker, mapperResults);
+        MapperResultCollector[] mapperResults = map(taskTracker, inputStream);
+        ReducerResultCollector[] reducerResults = reduce(taskTracker, mapperResults);
         
         taskTracker.shutdown();
         
         SortedMap<String, Integer> result = mergeAndSort(reducerResults);
         
-        // File out = new File("C:\\Users\\lishid\\Desktop\\output.csv");
-        // out.createNewFile();
-        // PrintStream outPrintStream = new PrintStream(out);
-        // for (Entry<String, Integer> road : result.entrySet()) {
-        // outPrintStream.println(road.getKey() + ": " + road.getValue());
-        // }
-        // outPrintStream.close();
-        // System.out.println(result.size());
-        
         return result;
     }
     
-    private List<MapperResultCollector> map(TaskTracker taskTracker, InputStream inputStream) throws Exception {
+    private MapperResultCollector[] map(TaskTracker taskTracker, InputStream inputStream) throws Exception {
         List<MapperResultCollector> resultCollectors = new ArrayList<MapperResultCollector>();
-        // Side note here, the inputstream contains 228304949 bytes, 228304515 chars. The file seems to be in ASCII though
         
         // Read the stream in large chunks. Individual line splitting will be done
         // on worker threads so as to parallelize as much work as possible
         LargeChunkReader reader = new LargeChunkReader(inputStream);
-        long startTime = System.currentTimeMillis();
         int read = 1;
         while (read > 0) {
             byte[] buffer = new byte[MAPPER_CHUNK_SIZE];
@@ -73,10 +69,8 @@ public class MapReduceProcessor {
         }
         taskTracker.setThreads(AVAILABLE_CORES);
         reader.close();
-        System.out.println("IO Took: " + (System.currentTimeMillis() - startTime));
         
         taskTracker.waitForTasksAndReset();
-        System.out.println("Map took: " + (System.currentTimeMillis() - startTime));
         
         List<MapperResultCollector> validResults = new ArrayList<MapperResultCollector>();
         for (MapperResultCollector collector : resultCollectors) {
@@ -84,31 +78,31 @@ public class MapReduceProcessor {
                 validResults.add(collector);
             }
         }
-        return validResults;
+        return validResults.toArray(new MapperResultCollector[validResults.size()]);
     }
     
-    private List<ReducerResultCollector> reduce(TaskTracker taskTracker, List<MapperResultCollector> input) throws Exception {
-        List<ReducerResultCollector> resultCollectors = new ArrayList<ReducerResultCollector>(PARTITIONS);
+    private ReducerResultCollector[] reduce(TaskTracker taskTracker, MapperResultCollector[] input) throws Exception {
+        ReducerResultCollector[] resultCollectors = new ReducerResultCollector[PARTITIONS];
         
         for (int i = 0; i < PARTITIONS; i++) {
             ReduceTask task = new ReduceTask(taskTracker, input, i);
             taskTracker.startTask(task);
-            resultCollectors.add(task.getFutureResult());
+            resultCollectors[i] = task.getFutureResult();
         }
         
         taskTracker.waitForTasksAndReset();
         return resultCollectors;
     }
     
-    private SortedMap<String, Integer> mergeAndSort(List<ReducerResultCollector> input) {
+    private SortedMap<String, Integer> mergeAndSort(ReducerResultCollector[] input) {
         SortedMap<String, Integer> sortedResult = null;
         
-        for (int i = 0; i < input.size(); i++) {
+        for (int i = 0; i < input.length; i++) {
             if (sortedResult == null) {
-                sortedResult = new ParkingTicketTreeMap(input.get(i).result);
+                sortedResult = new ParkingTicketTreeMap(input[i].result);
             }
             else {
-                sortedResult.putAll(input.get(i).result);
+                sortedResult.putAll(input[i].result);
             }
         }
         

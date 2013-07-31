@@ -1,4 +1,4 @@
-package com.lishid.kijiji.contest.mapred;
+package com.lishid.kijiji.contest;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -22,24 +22,27 @@ public class Algorithm {
         if (line == null)
             return;
         
-        // Read from back to front as we don't really care about the first 6 columns
         int wordEnd = line.end;
         int col = 0;
-        int roadNameStart = 0;
-        int roadNameLength = 0;
+        // Keep track of the indices of the two fields and process them at the end
+        // This is done to recycle the MutableString variable "line".
+        int addressStart = 0;
+        int addressLength = 0;
         int fineAmountStart = 0;
         int fineAmountLength = 0;
+        // Read from back to front as we don't really care about the first 6 columns
         for (int i = line.end - 1; i >= line.start; i--) {
             if (line.data[i] == ',') {
-                // Column 11 => Road Name
+                // Column 11 => Address
                 if (col == 3) {
-                    roadNameStart = i + 1;
-                    roadNameLength = wordEnd - i - 1;
+                    addressStart = i + 1;
+                    addressLength = wordEnd - i - 1;
                 }
                 // Column 7 => Fine Amount
                 else if (col == 6) {
                     fineAmountStart = i + 1;
                     fineAmountLength = wordEnd - i - 1;
+                    // Skip the rest of the columns
                     break;
                 }
                 wordEnd = i;
@@ -47,8 +50,8 @@ public class Algorithm {
             }
         }
         result.value = MutableString.toPositiveInteger(line.data, fineAmountStart, fineAmountLength);
-        // MutableString line can now be recycled as it is no longer used
-        result.key = findRoadName(line.useAsNewString(line.data, roadNameStart, roadNameLength));
+        // MutableString "line" can now be recycled as it is no longer used
+        result.key = findRoadName(line.useAsNewString(line.data, addressStart, addressLength));
     }
     
     /**
@@ -61,20 +64,28 @@ public class Algorithm {
     
     /**
      * Combine key-value pairs together by adding values together for the same key if it existed in the map
-     * 
-     * @return a MutableInteger to be recycled
      */
-    public static MutableInteger combine(MutableString key, MutableInteger value, Map<MutableString, MutableInteger> map) {
+    public static void combine(MutableString key, int value, Map<MutableString, MutableInteger> map) {
+        MutableInteger previousValue = map.get(key);
+        if (previousValue != null) {
+            previousValue.add(value);
+        }
+        else {
+            map.put(key, new MutableInteger(value));
+        }
+    }
+    
+    /**
+     * Combine key-value pairs together by adding values together for the same key if it existed in the map
+     */
+    private static void reduce(MutableString key, MutableInteger value, Map<MutableString, MutableInteger> map) {
         MutableInteger previousValue = map.get(key);
         if (previousValue != null) {
             previousValue.add(value.value);
-            return value;
         }
         else {
             map.put(key, value);
         }
-        
-        return null;
     }
     
     /**
@@ -85,24 +96,27 @@ public class Algorithm {
      */
     public static void reduce(Map<MutableString, MutableInteger> input, Map<MutableString, MutableInteger> result) {
         for (Entry<MutableString, MutableInteger> entry : input.entrySet()) {
-            combine(entry.getKey(), entry.getValue(), result);
+            reduce(entry.getKey(), entry.getValue(), result);
         }
     }
     
     /**
-     * This method has been optimized to cut off the front and back of the given un-formatted road name.
+     * This method has been optimized to cut off the beginning and end of the given un-formatted address.
      * Using direct access to the backed array of the MutableString, this method can quickly scan through characters
+     * without much overhead for splitting string or creating temporary copies of any data
      */
-    private static MutableString findRoadName(MutableString roadName) {
-        int startIndex;
-        int endIndex = roadName.end;
-        int wordStart = roadName.start;
+    private static MutableString findRoadName(MutableString address) {
+        int startIndex = address.start;
+        int endIndex = address.end;
+        int wordStart = address.start;
         
-        // Step 1, skip all non-alphabetic words
+        // Step 1, skip all non-alphabetic words in the beginning of the address
+        // Note that this will ignore numbered street names (such as 3RD), but the sample data
+        // only contains 4 different numbered street names which are all trivial in amount
         boolean alphabetic = true;
         boolean wordStarted = false;
-        for (startIndex = roadName.start; startIndex < endIndex; startIndex++) {
-            if (roadName.data[startIndex] == ' ') {
+        for (startIndex = address.start; startIndex < endIndex; startIndex++) {
+            if (address.data[startIndex] == ' ') {
                 // Found alphabetic word
                 if (wordStarted && alphabetic) {
                     break;
@@ -114,21 +128,21 @@ public class Algorithm {
             }
             else {
                 wordStarted = true;
-                if (alphabetic && (roadName.data[startIndex] < 'A' || roadName.data[startIndex] > 'Z')) {
+                if (alphabetic && (address.data[startIndex] < 'A' || address.data[startIndex] > 'Z')) {
                     alphabetic = false;
                 }
             }
         }
         
         // To avoid creating a new object, use the same object as temporary string
-        roadName.backup();
+        address.backup();
         
         // Step 2, find first filtered suffix
         int endWordStart = startIndex + 1;
-        for (endIndex = startIndex + 1; endIndex < roadName.end; endIndex++) {
-            if (roadName.data[endIndex] == ' ') {
-                boolean foundSuffix = suffixFilter.isWordFilteredSuffix(roadName.useAsNewString(roadName.data, endWordStart, endIndex - endWordStart));
-                roadName.restore();
+        for (endIndex = startIndex + 1; endIndex < address.end; endIndex++) {
+            if (address.data[endIndex] == ' ') {
+                boolean foundSuffix = suffixFilter.isWordFilteredSuffix(address.useAsNewString(address.data, endWordStart, endIndex - endWordStart));
+                address.restore();
                 if (foundSuffix) {
                     break;
                 }
@@ -138,12 +152,12 @@ public class Algorithm {
         
         // Construct new word by only cutting off the front and back
         int length = endWordStart - wordStart - 1;
-        if (length == roadName.length) {
-            return roadName;
+        if (length == address.length) {
+            return address;
         }
         
         // MutableString roadName is no longer needed, recycle as new string
-        return roadName.useAsNewString(roadName.data, wordStart, length);
+        return address.useAsNewString(address.data, wordStart, length);
     }
     
     private static class SuffixFilter {

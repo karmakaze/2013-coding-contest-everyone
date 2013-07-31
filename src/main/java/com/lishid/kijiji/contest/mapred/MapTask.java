@@ -2,7 +2,8 @@ package com.lishid.kijiji.contest.mapred;
 
 import java.util.HashMap;
 
-import com.lishid.kijiji.contest.mapred.Algorithm.MapResult;
+import com.lishid.kijiji.contest.Algorithm;
+import com.lishid.kijiji.contest.Algorithm.MapResult;
 import com.lishid.kijiji.contest.util.ByteArrayReader;
 import com.lishid.kijiji.contest.util.MutableInteger;
 import com.lishid.kijiji.contest.util.MutableString;
@@ -39,22 +40,14 @@ public class MapTask extends MapReduceTask {
         
         MapResult mapResult = new MapResult();
         MutableString line;
-        MutableInteger recyclableInteger = null;
         while ((line = dataReader.readLine()) != null) {
             try {
                 Algorithm.map(line, mapResult);
                 MutableString key = mapResult.key;
                 int value = mapResult.value;
-                if (recyclableInteger == null) {
-                    recyclableInteger = new MutableInteger(value);
-                }
-                else {
-                    recyclableInteger.useAsNewInteger(value);
-                }
-                recyclableInteger = localResultCollector.collect(key, recyclableInteger);
+                localResultCollector.collect(key, value);
             }
             catch (Exception e) {
-                recyclableInteger = null;
                 // Ignore bad lines
             }
         }
@@ -71,17 +64,21 @@ public class MapTask extends MapReduceTask {
         public void init() {
             partitionedResult = new MapperResultPartition[partitions];
             for (int i = 0; i < partitions; i++) {
-                partitionedResult[i] = new MapperResultPartition(16384);
+                partitionedResult[i] = new MapperResultPartition(16411);
             }
         }
         
-        public MutableInteger collect(MutableString key, MutableInteger value) {
+        public void collect(MutableString key, int value) {
             int partition = getPartition(key.hashCode());
-            return Algorithm.combine(key, value, partitionedResult[partition]);
+            Algorithm.combine(key, value, partitionedResult[partition]);
         }
         
         private int getPartition(int input) {
-            return Math.abs(input) % partitions;
+            input = input % partitions;
+            if (input < 0) {
+                input += partitions;
+            }
+            return input;
         }
     }
     

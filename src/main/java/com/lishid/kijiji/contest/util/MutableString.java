@@ -1,5 +1,7 @@
 package com.lishid.kijiji.contest.util;
 
+import java.nio.charset.Charset;
+
 /**
  * MutableString is like a Java String, but it re-uses the char array given <br>
  * <br>
@@ -8,12 +10,18 @@ package com.lishid.kijiji.contest.util;
  * @author lishid
  */
 public class MutableString implements Comparable<MutableString> {
+    private static final Charset US_ASCII = Charset.forName("US-ASCII");
     public byte[] data;
     public int start;
     public int length;
     public int end;
     private int hash;
     
+    /**
+     * Create a MutableString from a Java String. The backing array is newly allocated.
+     * 
+     * @param string
+     */
     public MutableString(String string) {
         char[] array = string.toCharArray();
         byte[] buffer = new byte[array.length];
@@ -23,13 +31,20 @@ public class MutableString implements Comparable<MutableString> {
         useAsNewString(buffer, 0, string.length());
     }
     
-    public MutableString(byte[] data, int start, int length) {
-        useAsNewString(data, start, length);
+    /**
+     * Create a MutableString from a backing array.
+     * 
+     * @param data
+     * @param start
+     * @param length
+     */
+    public MutableString(byte[] data, int offset, int length) {
+        useAsNewString(data, offset, length);
     }
     
-    public MutableString useAsNewString(byte[] data, int start, int length) {
+    public MutableString useAsNewString(byte[] data, int offset, int length) {
         this.data = data;
-        this.start = start;
+        this.start = offset;
         this.length = length;
         this.end = start + length;
         this.hash = 0;
@@ -38,7 +53,7 @@ public class MutableString implements Comparable<MutableString> {
     
     @Override
     public String toString() {
-        return new String(data, start, length);
+        return new String(data, start, length, US_ASCII);
     }
     
     @Override
@@ -99,6 +114,36 @@ public class MutableString implements Comparable<MutableString> {
         return length == 0;
     }
     
+    public MutableString clone() {
+        return new MutableString(data, start, length);
+    }
+    
+    /**
+     * Read an integer from the buffer.
+     * This is static as there's no need to create an object just to read the buffer though.
+     * 
+     * @param data
+     * @param start
+     * @param length
+     * @return
+     */
+    public static int toPositiveInteger(byte[] data, int start, int length) {
+        int end = start + length;
+        int result = 0;
+        for (int i = start; i < end; i++) {
+            byte c = data[i];
+            if (c >= '0' && c <= '9') {
+                result = result * 10 + (c - '0');
+            }
+            else if (c != ' ') {
+                return 0;
+            }
+        }
+        return result;
+    }
+    
+    // Backup and restore allows to use the same object for a temporary purpose and revert back
+    
     public byte[] backup_data;
     public int backup_start;
     public int backup_length;
@@ -125,24 +170,5 @@ public class MutableString implements Comparable<MutableString> {
         length = backup_length;
         end = backup_end;
         hash = backup_hash;
-    }
-    
-    public MutableString clone() {
-        return new MutableString(data, start, length);
-    }
-    
-    public static int toPositiveInteger(byte[] data, int start, int length) {
-        int end = start + length;
-        int result = 0;
-        for (int i = start; i < end; i++) {
-            byte c = data[i];
-            if (c >= '0' && c <= '9') {
-                result = result * 10 + (c - '0');
-            }
-            else if (c != ' ') {
-                return 0;
-            }
-        }
-        return result;
     }
 }

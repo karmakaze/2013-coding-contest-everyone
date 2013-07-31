@@ -1,20 +1,20 @@
 package com.lishid.kijiji.contest.mapred;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import com.lishid.kijiji.contest.Algorithm;
 import com.lishid.kijiji.contest.mapred.MapTask.MapperResultCollector;
 import com.lishid.kijiji.contest.util.MutableInteger;
 import com.lishid.kijiji.contest.util.MutableString;
 
 public class ReduceTask extends MapReduceTask {
-    List<MapperResultCollector> mapperResults;
+    MapperResultCollector[] mapperResults;
     int partition;
     ReducerResultCollector resultCollector;
     
-    public ReduceTask(TaskTracker taskTracker, List<MapperResultCollector> mapperResults, int partition) {
+    public ReduceTask(TaskTracker taskTracker, MapperResultCollector[] mapperResults, int partition) {
         super(taskTracker);
         this.mapperResults = mapperResults;
         this.partition = partition;
@@ -47,6 +47,6 @@ public class ReduceTask extends MapReduceTask {
     }
     
     public static class ReducerResultCollector {
-        Map<String, Integer> result;
+        public Map<String, Integer> result;
     }
 }
