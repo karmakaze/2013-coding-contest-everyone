@@ -13,5 +13,22 @@
         <fileSet>
             <directory>${project.basedir}/src/main</directory>
         </fileSet>
+        <fileSet>
+            <directory>${project.basedir}/src/jruby</directory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.basedir}/spec</directory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.basedir}/perf</directory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.basedir}</directory>
+            <includes>
+                <include>${project.basedir}/Gemfile</include>
+                <include>${project.basedir}/.ruby-version</include>
+                <include>${project.basedir}/.jrubyrc</include>
+            </includes>
+        </fileSet>
     </fileSets>
 </assembly>
