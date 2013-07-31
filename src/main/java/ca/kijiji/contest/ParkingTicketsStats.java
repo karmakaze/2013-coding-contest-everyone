@@ -163,8 +163,6 @@ public class ParkingTicketsStats {
     	
     	SortedMapByValue<String, Integer> sortedProfitabilityByStreet = new SortedMapByValue<String, Integer>();
         sortedProfitabilityByStreet.entrySet().addAll(accumulatedProfitabilityByStreet.entrySet());
-    	
-        System.out.println(sortedProfitabilityByStreet);
         
     	return sortedProfitabilityByStreet;
     }
