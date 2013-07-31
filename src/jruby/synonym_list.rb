@@ -3,7 +3,15 @@ class SynonymList
    attr_reader :synonyms
 
    def self.from_file(filename)
-      File.read(filename).split(/\n/).reject {|line| line =~ /^#/ || line.strip.length == 0 } .map {|line| new(*line.split) }
+      lists = File.read(filename)
+                  .split(/\n/)
+                  .reject {|line| line =~ /^#/ || line.strip.length == 0 }
+                  .map {|line| new(*line.split) }
+
+      lists.inject({}) do |hash, list|
+         list.synonyms.each {|syn| hash[syn] = list }
+         hash
+      end
    end
    
    def initialize(*args)
