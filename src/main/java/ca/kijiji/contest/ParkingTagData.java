@@ -129,10 +129,11 @@ public class ParkingTagData {
 	public String streetNameFromLocation2UsingRegex() {
 		// Using Canada Post's Find a Postal Code page as a rough reference for address components
 		
-		Matcher matcher = locationPattern.matcher(location2);
-    	if (matcher.matches()) {
+		//Matcher matcher = locationPattern.matcher(location2);
+		locationMatcher.reset(location2);
+    	if (locationMatcher.matches()) {
     		//System.out.println(str + "," + matcher.group(2));
-    		return matcher.group(2).trim();
+    		return locationMatcher.group(2).trim();
     	} else {
     		//System.out.println(str + ",");
     		return null;
@@ -156,7 +157,7 @@ public class ParkingTagData {
 		
 		// From the start of the components, eliminate anything containing numbers
 		int start = 0;
-		while (start < components.length && digitPattern.matcher(components[start]).find()) {
+		while (start < components.length && digitMatcher.reset(components[start]).find()) {
 			start++;
 		}
 		
