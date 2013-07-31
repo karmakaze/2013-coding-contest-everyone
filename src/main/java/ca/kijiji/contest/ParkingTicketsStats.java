@@ -22,14 +22,14 @@ import java.util.concurrent.TimeUnit;
 public class ParkingTicketsStats {
 
 	enum ThreadingScheme {
-		SingleThreaded,
-		MultiThreaded
+		SingleThreaded,		// Read and process tickets on the main thread
+		MultiThreaded		// Read on the current thread and process on multiple other threads
 	}
 	
 	enum ParsingScheme {
-		Regex,
-		Scanning,
-		Splitting
+		Regex,				// Use regular expressions to extract street names
+		Scanning,			// Use a string scanner to extract street names
+		Splitting			// Split strings and trim components to extract street names
 	}
 
 	final static Logger LOG = LoggerFactory.getLogger(ParkingTicketsStats.class);
@@ -37,7 +37,7 @@ public class ParkingTicketsStats {
 	final static boolean parseSignificantDataOnly = true;
 	final static int dataChunkSize = 10 * 1024 * 1024;
 	
-	final static ThreadingScheme threadingScheme = ThreadingScheme.SingleThreaded;
+	final static ThreadingScheme threadingScheme = ThreadingScheme.MultiThreaded;
 	final static ParsingScheme parsingScheme = ParsingScheme.Splitting;
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
@@ -86,11 +86,11 @@ public class ParkingTicketsStats {
     /**
      * SingleThreaded Approach
      * 
-     * This approach uses a BufferedReader to read in from parkingTicketsStream line by line, parsing out
-     * the street name and fine amount, and updating unsortedProfitabilityByStreet along the way.
+     * This approach simply creates a TagDataChunkProcessor for the passed in parkingTicketsReader
+     * and runs it on the current thread. The chunk in this case is the entire source file.
      * 
      * @param parkingTicketsStream
-     * @return
+     * @return An unsorted Map of streets and revenues.
      */
     static Map<String, Integer> streetsByProfitabilityUsingSingleThread(BufferedReader parkingTicketsReader) {
     	long procStartTime = System.currentTimeMillis();
@@ -112,16 +112,20 @@ public class ParkingTicketsStats {
      /**
      * MultiThreaded Approach
      * 
-     * This approach reads in chars in approximately 10 MB chunks (always ending at the end of a line)
-     * on the main thread, and uses an ExecutorService to manage TagDataChunkProcessor instances.
+     * This approach reads in chars from parkingTicketsReader in approximately 10 MB chunk on the
+     * current thread, then create a TagDataChunkProcessor with each data chunk and uses an
+     * ExecutorService to schedule and run it on multiple threads. The ExecutorService is set to use
+	 * a thread pool sized to match the number of avaiable processors (presumeably real and hyperthreaded).
+	 * 
+	 * The TagDataChunkProcessors all provide an intermediate Map of streets and revenues, which are
+	 * reduced to a single Map that is returned to the caller.
      * 
      * Based on http://stackoverflow.com/questions/2332537/producer-consumer-threads-using-a-queue
      * 
      * @param parkingTicketsStream
-     * @return
+     * @return An unsorted Map of streets and revenues.
      */
     static Map<String, Integer> streetsByProfitabilityUsingMultipleThreads(BufferedReader parkingTicketsReader) {
-    	// Prepare an ExecutorService to process incoming data chunks
     	int cores = Runtime.getRuntime().availableProcessors();
     	ExecutorService consumers = Executors.newFixedThreadPool(cores);
     	ArrayList<Future<HashMap<String, Integer>>> futures = new ArrayList<Future<HashMap<String, Integer>>>();
@@ -148,7 +152,7 @@ public class ParkingTicketsStats {
     			if (charactersRead != -1) {
     				remainingLine = parkingTicketsReader.readLine();
     				
-    				// Read to the end of a line and append it to dataChunk, if necessary
+    				// Read to the end of a line and append it to dataChunk, if available
     				if (remainingLine != null && (remainingLength = remainingLine.length()) > 0) {
     					remainingLine.getChars(0, remainingLength, dataChunk, charactersRead);
     					charactersRead += remainingLength;
