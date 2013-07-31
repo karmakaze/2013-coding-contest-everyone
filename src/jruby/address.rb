@@ -9,6 +9,8 @@ class Address
 
    KnownSuffixes = SynonymList.from_file File.join(File.dirname(__FILE__), "address_suffixes.txt")
 
+   HKnownSuffixes = Hash[KnownSuffixes.inject([]) {|arr, sufx| sufx.synonyms.each {|syn| arr << [syn, sufx] }; arr }]
+
    KnownDirections = SynonymList.from_file File.join(File.dirname(__FILE__), "address_directions.txt")
 
    def initialize(raw)
@@ -65,9 +67,9 @@ class Address
             result[:direction] = dir = KnownDirections[idx]
          end
 
-         if idx = KnownSuffixes.index(toks.last)
+         if suffix = HKnownSuffixes[toks.last]
             result[:suffix_token] = toks.delete_at(-1)
-            result[:suffix] = KnownSuffixes[idx]
+            result[:suffix] = suffix
          end
 
          result[:street_name] = toks.join(" ")
