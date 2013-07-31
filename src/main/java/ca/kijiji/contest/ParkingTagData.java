@@ -88,10 +88,16 @@ public class ParkingTagData {
 		return true;
 	}
 	
+	/*
+	 * Returns set_fine_amount as an Integer.
+	 */
 	public Integer fineAmount() {
 		return new Integer(set_fine_amount);
 	}
 	
+	/*
+	 * Extracts the street name from location2 using a regular expression.
+	 */
 	public String streetNameFromLocation2UsingRegex() {
 		// Using Canada Post's Find a Postal Code page as a rough reference for address components
 		
@@ -116,6 +122,22 @@ public class ParkingTagData {
     		//System.out.println(str + ",");
     		return null;
     	}
+	}
+	
+	/*
+	 * Extracts the street name from location2 by scanning through the string
+	 * and looking for likely start and end points for the street name.
+	 */
+	public String streetNameFromLocation2ByScanning() {
+		return null;
+	}
+	
+	/* 
+	 * Extracts the street name from location2 by splitting the string by
+	 * spaces and picking out a subarray that is likely the street name 
+	 */
+	public String streetNameFromLocation2BySplitting() {
+		return null;
 	}
 	
 	public String toString() {
