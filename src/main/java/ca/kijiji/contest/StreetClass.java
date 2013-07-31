@@ -4,8 +4,9 @@ import java.lang.Character;
 import java.util.ArrayList;
 import java.util.Arrays;
 /**
- *
- * @author Eamonn
+ * Class used to extract just a street name from the location field given.
+ * 
+ * @author Eamonn Watson
  */
 
 public class StreetClass {
@@ -30,11 +31,16 @@ public class StreetClass {
         streetSuffix.add("AVENUE");
         streetSuffix.add("AV");
         streetSuffix.add("BL");
+        streetSuffix.add("BLV");
         streetSuffix.add("BLVD");
+        streetSuffix.add("BOULEVARD");
+        streetSuffix.add("BYWAY");
         streetSuffix.add("CIR");
         streetSuffix.add("CIRCLE");
         streetSuffix.add("COURT");
         streetSuffix.add("CRCL");
+        streetSuffix.add("CIRL");
+        streetSuffix.add("CL");
         streetSuffix.add("CR");
         streetSuffix.add("CRESCENT");
         streetSuffix.add("CRESENT");
@@ -42,7 +48,13 @@ public class StreetClass {
         streetSuffix.add("CRS");
         streetSuffix.add("CRT");
         streetSuffix.add("CT");
+        streetSuffix.add("GARDEN");
+        streetSuffix.add("GARDENS");
+        streetSuffix.add("GRDNS");
+        streetSuffix.add("GDS");
         streetSuffix.add("GATE");
+        streetSuffix.add("GREEN");
+        streetSuffix.add("GRV");
         streetSuffix.add("GT");
         streetSuffix.add("GDNS");
         streetSuffix.add("DR");
@@ -50,25 +62,41 @@ public class StreetClass {
         streetSuffix.add("LANE");
         streetSuffix.add("LANEWAY");
         streetSuffix.add("LN");
+        streetSuffix.add("MEWS");
+        streetSuffix.add("PALCE");
+        streetSuffix.add("PATHWAY");
+        streetSuffix.add("PARK");
         streetSuffix.add("PARKWAY");
+        streetSuffix.add("PKWY");
         streetSuffix.add("PLACE");
+        streetSuffix.add("PLAZA");
         streetSuffix.add("PLCE");
         streetSuffix.add("PL");
         streetSuffix.add("PK");
         streetSuffix.add("ROAD");
+        streetSuffix.add("ROSEWAY");
         streetSuffix.add("RD");
         streetSuffix.add("SQ");
         streetSuffix.add("SQUARE");
         streetSuffix.add("ST");
+        streetSuffix.add("STR");
         streetSuffix.add("STREET");
+        streetSuffix.add("TER");
+        streetSuffix.add("TERR");
         streetSuffix.add("TRAILWAY");
         streetSuffix.add("TRIALWAY");
         streetSuffix.add("TRL");
         streetSuffix.add("WALK");
         streetSuffix.add("WAY");
+        streetSuffix.add("WY");
     }
     
-    
+    /**
+     * Takes the location input from the file, parses it to remove just the street name.
+     * 
+     * @param location
+     * @return the street name
+     */    
     public static String getStreetName(String location){
 
         /**
