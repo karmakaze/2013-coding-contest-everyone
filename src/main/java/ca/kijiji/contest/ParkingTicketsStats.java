@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.SortedMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -44,16 +45,25 @@ public class ParkingTicketsStats {
         	return null;
         }
     	
+    	Map<String, Integer> unsortedProfitabilityByStreet = null;
+    	
     	switch (threadingScheme) {
     		case SingleThreaded:
-    			return sortStreetsByProfitabilityUsingSingleThread(parkingTicketsReader);
+    			unsortedProfitabilityByStreet = streetsByProfitabilityUsingSingleThread(parkingTicketsReader);
+    			break;
     		
     		case MultiThreaded:
-    			return sortStreetsByProfitabilityUsingMultipleThreads(parkingTicketsReader);
+    			unsortedProfitabilityByStreet = streetsByProfitabilityUsingMultipleThreads(parkingTicketsReader);
+    			break;
     			
     		default:
     			throw new UnsupportedOperationException();
     	}
+    	
+    	SortedMapByValue<String, Integer> sortedProfitabilityByStreet = new SortedMapByValue<String, Integer>();
+        sortedProfitabilityByStreet.entrySet().addAll(unsortedProfitabilityByStreet.entrySet());
+        
+    	return sortedProfitabilityByStreet;
     }
     
     /**
@@ -65,7 +75,7 @@ public class ParkingTicketsStats {
      * @param parkingTicketsStream
      * @return
      */
-    static SortedMap<String, Integer> sortStreetsByProfitabilityUsingSingleThread(BufferedReader parkingTicketsReader) {
+    static Map<String, Integer> streetsByProfitabilityUsingSingleThread(BufferedReader parkingTicketsReader) {
     	Callable<HashMap<String, Integer>> processor = new TagDataChunkProcessor(parkingTicketsReader);
     	HashMap<String, Integer> unsortedProfitabilityByStreet = null;
 		try {
@@ -74,10 +84,7 @@ public class ParkingTicketsStats {
 			return null;
 		}
     	
-    	SortedMapByValue<String, Integer> sortedProfitabilityByStreet = new SortedMapByValue<String, Integer>();
-        sortedProfitabilityByStreet.entrySet().addAll(unsortedProfitabilityByStreet.entrySet());
-        
-        return sortedProfitabilityByStreet;
+        return unsortedProfitabilityByStreet;
     }
     
      /**
@@ -91,7 +98,7 @@ public class ParkingTicketsStats {
      * @param parkingTicketsStream
      * @return
      */
-    static SortedMap<String, Integer> sortStreetsByProfitabilityUsingMultipleThreads(BufferedReader parkingTicketsReader) {
+    static Map<String, Integer> streetsByProfitabilityUsingMultipleThreads(BufferedReader parkingTicketsReader) {
     	// Prepare an ExecutorService to process incoming data chunks
     	int cores = Runtime.getRuntime().availableProcessors();
     	ExecutorService consumers = Executors.newFixedThreadPool(cores);
@@ -152,10 +159,7 @@ public class ParkingTicketsStats {
     		e.printStackTrace();
     	}
     	
-    	SortedMapByValue<String, Integer> sortedProfitabilityByStreet = new SortedMapByValue<String, Integer>();
-        sortedProfitabilityByStreet.entrySet().addAll(accumulatedProfitabilityByStreet.entrySet());
-        
-    	return sortedProfitabilityByStreet;
+    	return accumulatedProfitabilityByStreet;
     }
     
     /**
