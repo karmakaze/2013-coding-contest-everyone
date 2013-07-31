@@ -165,10 +165,10 @@ public class ParkingTagData {
 		} else {
 			StringBuilder sb = new StringBuilder();
 			
-			for (int i = start; i < end; i++) {
+			for (int i = start; i < end + 1; i++) {
 				sb.append(components[i]);
 				
-				if (i < end - 1) {
+				if (i < end) {
 					sb.append(" ");
 				}
 			}
