@@ -35,12 +35,21 @@ public class ParkingTicketsStats {
 	final static ParsingScheme parsingScheme = ParsingScheme.Splitting;
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
+    	BufferedReader parkingTicketsReader = null;
+    	
+    	try {
+        	parkingTicketsReader = new BufferedReader(new InputStreamReader(parkingTicketsStream, "ascii"));
+        	parkingTicketsReader.readLine();
+        } catch (IOException ioe) {
+        	return null;
+        }
+    	
     	switch (threadingScheme) {
     		case SingleThreaded:
-    			return sortStreetsByProfitabilityUsingSingleThread(parkingTicketsStream);
+    			return sortStreetsByProfitabilityUsingSingleThread(parkingTicketsReader);
     		
     		case MultiThreaded:
-    			return sortStreetsByProfitabilityUsingMultipleThreads(parkingTicketsStream);
+    			return sortStreetsByProfitabilityUsingMultipleThreads(parkingTicketsReader);
     			
     		default:
     			throw new UnsupportedOperationException();
@@ -56,16 +65,7 @@ public class ParkingTicketsStats {
      * @param parkingTicketsStream
      * @return
      */
-    static SortedMap<String, Integer> sortStreetsByProfitabilityUsingSingleThread(InputStream parkingTicketsStream) {
-    	BufferedReader parkingTicketsReader = null;
-    	
-    	try {
-        	parkingTicketsReader = new BufferedReader(new InputStreamReader(parkingTicketsStream, "ascii"));
-        	parkingTicketsReader.readLine();
-        } catch (IOException ioe) {
-        	return null;
-        }
-        
+    static SortedMap<String, Integer> sortStreetsByProfitabilityUsingSingleThread(BufferedReader parkingTicketsReader) {
     	Callable<HashMap<String, Integer>> processor = new TagDataChunkProcessor(parkingTicketsReader);
     	HashMap<String, Integer> unsortedProfitabilityByStreet = null;
 		try {
@@ -91,16 +91,7 @@ public class ParkingTicketsStats {
      * @param parkingTicketsStream
      * @return
      */
-    static SortedMap<String, Integer> sortStreetsByProfitabilityUsingMultipleThreads(InputStream parkingTicketsStream) {
-    	BufferedReader parkingTicketsReader = null;
-    	
-    	try {
-        	parkingTicketsReader = new BufferedReader(new InputStreamReader(parkingTicketsStream, "ascii"));
-        	parkingTicketsReader.readLine();
-        } catch (IOException ioe) {
-        	ioe.printStackTrace();
-        }
-    	
+    static SortedMap<String, Integer> sortStreetsByProfitabilityUsingMultipleThreads(BufferedReader parkingTicketsReader) {
     	// Prepare an ExecutorService to process incoming data chunks
     	int cores = Runtime.getRuntime().availableProcessors();
     	ExecutorService consumers = Executors.newFixedThreadPool(cores);
