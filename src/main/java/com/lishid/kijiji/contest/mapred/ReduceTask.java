@@ -28,6 +28,7 @@ public class ReduceTask extends MapReduceTask {
     /**
      * The reducer task: <br>
      * Take all mapper results for the same reducer partition and reduce(combine) it. <br>
+     * Also convert MutableString and MutableInteger to String and Integer
      */
     @Override
     public void performTask() throws Exception {
