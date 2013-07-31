@@ -167,6 +167,10 @@ public class ParkingTagData {
 			
 			for (int i = start; i < end; i++) {
 				sb.append(components[i]);
+				
+				if (i < end - 1) {
+					sb.append(" ");
+				}
 			}
 			
 			return sb.toString();
