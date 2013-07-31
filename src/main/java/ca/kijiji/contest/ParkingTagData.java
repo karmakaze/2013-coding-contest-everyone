@@ -1,5 +1,7 @@
 package ca.kijiji.contest;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -137,7 +139,38 @@ public class ParkingTagData {
 	 * spaces and picking out a subarray that is likely the street name 
 	 */
 	public String streetNameFromLocation2BySplitting() {
-		return null;
+		final HashSet<String> streetTypes = new HashSet<String>(Arrays.asList(
+				new String[] {"AVE", "AVENUE", "BLVD", "BVLD", "CIR", "CIRC", "CIRCL", "CIRCLE", "CIRT", "CIRCUIT", "COURT", "CRCL", "CRT", "CRES", "DRIVE", "GARDEN", "GARDENS", "GDNS", "GRV", "GRDNS", "GROVE", "HILL", "HTS", "KEEP", "LANE", "LINE", "LODGE", "LWN", "MALL", "MEWS", "PARKWAY", "PATH", "PARK", "PKWY", "PLACE", "POINT", "PROMENADE", "PTWY", "QUAY", "RAOD", "RD", "ROAD", "ROWN", "SQUARE", "STREET", "TER", "TERR", "TERRACE", "TRAIL", "TRL", "VIEW", "VISTA", "WALK", "WAY", "WAYS", "WOOD"}
+				));
+		
+		String[] components = location2.split(" ");
+		
+		// From the start of the components, eliminate anything containing numbers
+		Pattern digitPattern = Pattern.compile("\\p{Nd}");
+		int start = 0;
+		while (start < components.length && digitPattern.matcher(components[start]).find()) {
+			start++;
+		}
+		
+		// From the end of the components, eliminate anything less 2 characters or less,
+		// or is in the set of street types
+		int end = components.length - 1;
+		while (end > start && components[end].length() > 2 && !streetTypes.contains(components[end])) {
+			end--;
+		}
+		
+		// The components from start to end should be the street name
+		if (start == end) {
+			return components[start];
+		} else {
+			StringBuilder sb = new StringBuilder();
+			
+			for (int i = start; i < end; i++) {
+				sb.append(components[i]);
+			}
+			
+			return sb.toString();
+		}
 	}
 	
 	public String toString() {
