@@ -25,14 +25,14 @@ public class ParkingTicketsStats {
 	public enum ParsingScheme {
 		Regex,
 		Scanning,
-		Components
+		Splitting
 	}
 	
 	final static boolean parseSignificantDataOnly = true;
 	final static int dataChunkSize = 10 * 1024 * 1024;
 	
 	final static ThreadingScheme threadingScheme = ThreadingScheme.MultiThreaded;
-	final static ParsingScheme parsingScheme = ParsingScheme.Regex;
+	final static ParsingScheme parsingScheme = ParsingScheme.Splitting;
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
     	switch (threadingScheme) {
@@ -164,6 +164,8 @@ public class ParkingTicketsStats {
     	SortedMapByValue<String, Integer> sortedProfitabilityByStreet = new SortedMapByValue<String, Integer>();
         sortedProfitabilityByStreet.entrySet().addAll(accumulatedProfitabilityByStreet.entrySet());
     	
+        System.out.println(sortedProfitabilityByStreet);
+        
     	return sortedProfitabilityByStreet;
     }
     
@@ -193,7 +195,20 @@ public class ParkingTicketsStats {
             try {
             	while ((line = reader.readLine()) != null) {
                 	if (data.updateFromDataLine(line, parseSignificantDataOnly)) {
-                		if ((streetName = data.streetNameFromLocation2UsingRegex()) != null) {
+                		switch(parsingScheme) {
+	                		case Regex:
+	                			streetName = data.streetNameFromLocation2UsingRegex();
+	                			break;
+	                			
+	                		case Splitting:
+	                			streetName = data.streetNameFromLocation2BySplitting();
+	                			break;
+	                			
+	                		default:
+	                			throw new UnsupportedOperationException();
+                		}
+                		
+                		if (streetName != null) {
                 			totalFine = unsortedProfitabilityByStreet.get(streetName);
                 			totalFine = (totalFine != null) ? totalFine + data.fineAmount() : data.fineAmount();
                 			
