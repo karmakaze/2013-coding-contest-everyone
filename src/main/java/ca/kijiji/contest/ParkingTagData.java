@@ -20,6 +20,23 @@ public class ParkingTagData {
 	public String location4;				// *
 	public String province;					// 2
 	
+	final String streetNumberPatternString = "([i\\d$\\(/-]*)";
+	final String streetNamePatternString = "([a-zA-Z '-]+)";
+	final String streetTypePatternString = 
+			"(AV|AVE|AVENUE|BL|BLVD|BVLD|CIR|CIRC|CIRCL|CIRCLE|CIRT|CIRCUIT|COURT|CR|CRCL|CRT|CRES|CT|DR|DRIVE|GARDEN|GARDENS|GDNS|GR|GRV|GRDNS|GROVE|GT|HILL|HTS|KEEP|LANE|LINE|LODGE|LN|LWN|MALL|MEWS|PARKWAY|PATH|PARK|PK|PKWY|PL|PLACE|POINT|PROMENADE|PT|PTWY|QUAY|RAOD|RD|ROAD|ROWN|SQ|SQUARE|ST|STREET|TER|TERR|TERRACE|TR|TRAIL|TRL|VIEW|VISTA|WALK|WAY|WAYS|WOOD)\\.?";
+	final String streetDirectionPatternString = "([NESW]?)";
+	
+	final Pattern locationPattern = Pattern.compile(
+			streetNumberPatternString + " ?" +
+			streetNamePatternString + " ?" +
+			streetTypePatternString + " ?" +
+			streetDirectionPatternString
+			);
+	
+	final HashSet<String> streetTypes = new HashSet<String>(Arrays.asList(
+			new String[] {"AVE", "AVENUE", "BLVD", "BVLD", "CIR", "CIRC", "CIRCL", "CIRCLE", "CIRT", "CIRCUIT", "COURT", "CRCL", "CRT", "CRES", "DRIVE", "GARDEN", "GARDENS", "GDNS", "GRV", "GRDNS", "GROVE", "HILL", "HTS", "KEEP", "LANE", "LINE", "LODGE", "LWN", "MALL", "MEWS", "PARKWAY", "PATH", "PARK", "PKWY", "PLACE", "POINT", "PROMENADE", "PTWY", "QUAY", "RAOD", "RD", "ROAD", "ROWN", "SQUARE", "STREET", "TER", "TERR", "TERRACE", "TRAIL", "TRL", "VIEW", "VISTA", "WALK", "WAY", "WAYS", "WOOD"}
+			));
+	
 	public ParkingTagData() {
 		super();
 	}
@@ -103,19 +120,6 @@ public class ParkingTagData {
 	public String streetNameFromLocation2UsingRegex() {
 		// Using Canada Post's Find a Postal Code page as a rough reference for address components
 		
-		final String streetNumberPatternString = "([i\\d$\\(/-]*)";
-		final String streetNamePatternString = "([a-zA-Z '-]+)";
-		final String streetTypePatternString = 
-				"(AV|AVE|AVENUE|BL|BLVD|BVLD|CIR|CIRC|CIRCL|CIRCLE|CIRT|CIRCUIT|COURT|CR|CRCL|CRT|CRES|CT|DR|DRIVE|GARDEN|GARDENS|GDNS|GR|GRV|GRDNS|GROVE|GT|HILL|HTS|KEEP|LANE|LINE|LODGE|LN|LWN|MALL|MEWS|PARKWAY|PATH|PARK|PK|PKWY|PL|PLACE|POINT|PROMENADE|PT|PTWY|QUAY|RAOD|RD|ROAD|ROWN|SQ|SQUARE|ST|STREET|TER|TERR|TERRACE|TR|TRAIL|TRL|VIEW|VISTA|WALK|WAY|WAYS|WOOD)\\.?";
-		final String streetDirectionPatternString = "([NESW]?)";
-		
-		final Pattern locationPattern = Pattern.compile(
-				streetNumberPatternString + " ?" +
-				streetNamePatternString + " ?" +
-				streetTypePatternString + " ?" +
-				streetDirectionPatternString
-				);
-		
 		Matcher matcher = locationPattern.matcher(location2);
     	if (matcher.matches()) {
     		//System.out.println(str + "," + matcher.group(2));
@@ -139,10 +143,6 @@ public class ParkingTagData {
 	 * spaces and picking out a subarray that is likely the street name 
 	 */
 	public String streetNameFromLocation2BySplitting() {
-		final HashSet<String> streetTypes = new HashSet<String>(Arrays.asList(
-				new String[] {"AVE", "AVENUE", "BLVD", "BVLD", "CIR", "CIRC", "CIRCL", "CIRCLE", "CIRT", "CIRCUIT", "COURT", "CRCL", "CRT", "CRES", "DRIVE", "GARDEN", "GARDENS", "GDNS", "GRV", "GRDNS", "GROVE", "HILL", "HTS", "KEEP", "LANE", "LINE", "LODGE", "LWN", "MALL", "MEWS", "PARKWAY", "PATH", "PARK", "PKWY", "PLACE", "POINT", "PROMENADE", "PTWY", "QUAY", "RAOD", "RD", "ROAD", "ROWN", "SQUARE", "STREET", "TER", "TERR", "TERRACE", "TRAIL", "TRL", "VIEW", "VISTA", "WALK", "WAY", "WAYS", "WOOD"}
-				));
-		
 		String[] components = location2.split(" ");
 		
 		// From the start of the components, eliminate anything containing numbers
