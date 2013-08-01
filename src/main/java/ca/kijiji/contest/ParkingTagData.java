@@ -42,6 +42,7 @@ public class ParkingTagData {
 		String streetDirectionPatternString = "([NESW]?)";
 		
 		// Build streetTypePatternString
+		// It'll result in (AV|AVE|AVENUE|BL|...|WOOD)
 		StringBuilder sb = new StringBuilder();
 		sb.append("(");
 		for (String type : streetTypes) {
@@ -54,12 +55,16 @@ public class ParkingTagData {
 		
 		digitPattern = Pattern.compile("\\p{Nd}");
 		locationPattern = Pattern.compile(
-			streetNumberPatternString + " ?" +
-			streetNamePatternString + " ?" +
-			streetTypePatternString + " ?" +
-			streetDirectionPatternString
+			streetNumberPatternString + " ?" +	// street number and some garbage characters
+			streetNamePatternString + " ?" +	// street name (the part we want)
+			streetTypePatternString + " ?" +	// street type (see streetTypes above)
+			streetDirectionPatternString		// one letter (only) direction
 		);
 		
+		// This HashSet supports streetNameFromLocation2BySplitting. It contains street types
+		// that are longer than 2 characters and the expanded directions NORTH, EAST, SOUTH, and
+		// WEST. The reason for the 2 character distinction is that the method assumes anything 
+		// 2 characters or less is not part of the street name.
 		longStreetTypesAndDirections = new HashSet<String>();
 		for (String type : streetTypes) {
 			if (type.length() > 2) {
