@@ -1,29 +1,38 @@
 package ca.kijiji.contest
 
+import java.util.concurrent.ConcurrentHashMap
 import scala.io.Source
-import scala.collection.mutable
 import com.google.common.base.Functions
 import com.google.common.collect.{Ordering, ImmutableSortedMap}
 
 object ParkingTicketsStats {
 
-  def sortStreetsByProfitability(parkingTicketsStream: java.io.InputStream): java.util.SortedMap[java.lang.String, java.lang.Integer] = {
+  def sortStreetsByProfitability(parkingTicketsStream: java.io.InputStream): java.util.SortedMap[String, Integer] = {
     //get an iterator of the lines in the file
     val iterator = Source.fromInputStream(parkingTicketsStream).getLines()
-    //skip the first line (header)
-    iterator.next()
+    val hashMap = new ConcurrentHashMap[String, Integer]()
 
-    val hashMap = mutable.Map[String, Integer]()
-    //iterate through lines, add the infractions
-    iterator.foreach(i => {
-      val infraction = Infraction.fromString(i)
-      val previous : Integer = hashMap.getOrElse(infraction.street,0)
-      hashMap.put(infraction.street, previous + infraction.amount)
-    })
+    try {
+      //skip the first line (header)
+      iterator.next()
 
-    val jMap = scala.collection.JavaConversions.mapAsJavaMap(hashMap)
-    val comparator : Ordering[String] = Ordering.natural().onResultOf(Functions.forMap(jMap)).compound(Ordering.natural()).reverse()
+      //iterate through lines in chunks
+      for ( chunk <- iterator.grouped(ChunkSize) ) {
+        //add the infractions in parallel
+        chunk.par.foreach(line => {
+          val infraction = Infraction.fromString(line)
+          val previous: Integer = Option(hashMap.get(infraction.street)).getOrElse(0)
+          hashMap.put(infraction.street, previous + infraction.amount)
+        })
+      }
+    } finally {
+      parkingTicketsStream.close()
+    }
 
-    return ImmutableSortedMap.copyOf(jMap, comparator)
+    //sort by value, descending
+    val comparator: Ordering[String] = Ordering.natural().onResultOf(Functions.forMap(hashMap)).compound(Ordering.natural()).reverse()
+    ImmutableSortedMap.copyOf(hashMap, comparator)
   }
+
+  private final val ChunkSize = 9600
 }

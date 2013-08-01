@@ -29,8 +29,3 @@ class StreetParserTest {
     assertThat(street, equalTo("ST CLAIR"))
   }
 }
-
-//44 O'LEARY AVE
-//625 FINCH AVE WEST
-//ST ENOCH'S SQ
-

@@ -5,25 +5,25 @@ import org.slf4j.LoggerFactory
 
 object Infraction
 {
-  def fromString(line:String) : Infraction = {
+  def fromString(line:String): Infraction = {
     val csv = line.split(',')
     if(csv.length < 8)
       log.error("Cannot parse line : \n" + line)
-    
+
     new Infraction(extractStreet(csv(StreetIndex)), csv(AmountIndex).toInt)
   }
 
-  def extractStreet(address:String):String = {
+  def extractStreet(address: String): String = {
     var arr = address.split(' ')
     if(arr.length > 1) {
-      //if there is a number
+      //if there is a number, drop it
       if(isAllDigits(arr(0)))
         arr = arr.drop(1)
 
-      //if it ends with an orientation
+      //if it ends with an orientation, drop it with the suffix
       if(isOrientation(arr(arr.length - 1)))
         arr = arr.dropRight(2)
-      //if not, the suffix
+      //if not, just the suffix
       else
         arr = arr.dropRight(1)
     }
@@ -38,12 +38,7 @@ object Infraction
   private final val log : Logger = LoggerFactory.getLogger(classOf[Infraction])
 }
 
-class Infraction(val street:String, val amount:Int)
+class Infraction(val street: String, val amount: Integer)
 {
   override def toString = "$" + amount + " on " + street
 }
-
-//end
-//([A-Z]*\s)?(N|S|E|W)?$
-//start
-//^(\d*\s)?([A-Z]*)
