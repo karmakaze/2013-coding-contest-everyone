@@ -35,7 +35,7 @@ class StreetNameResolver {
     // Compound addresses ("FOO ST & BAR ST", "QUUX ST / BAZ RD")
     // Containing data that should be in location3 or 4 ("BAY ST N/O", "BACK/OF   425 ADELAIDE ST W")
     // Addresses with non-standard characters ("90 ,PRME;;E CT") as they are usually accidental
-    // Adresses with non-standard data ("1240 ISLINGTON AV KISS & RIDE M8X 141")
+    // Addresses with non-standard data ("1240 ISLINGTON AV KISS & RIDE M8X 141")
 
     // We do allow:
     // Garbage before, between and after the street ("#221 $$$$FOO ST######") which gets discarded
