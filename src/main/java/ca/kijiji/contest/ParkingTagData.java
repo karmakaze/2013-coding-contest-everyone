@@ -126,6 +126,10 @@ public class ParkingTagData {
 		else {
 			String[] fields = line.split(",");
 			
+			if (fields.length < 10) {
+				return false;
+			}
+			
 			tag_number = fields[0];
 			date_of_infraction = fields[1];
 			infraction_code = fields[2];
