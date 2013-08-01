@@ -131,7 +131,7 @@ public class ParkingTagData {
 		else {
 			String[] fields = line.split(",");
 			
-			if (fields.length < 10) {
+			if (fields.length < 11) {
 				return false;
 			}
 			
