@@ -44,6 +44,10 @@ public class ParkingTicketsStats {
 	final static ThreadingScheme threadingScheme = ThreadingScheme.MultiThreaded;
 	final static ParsingScheme parsingScheme = ParsingScheme.Splitting;
 
+	/**
+	 * Generates a SortedMap of streets and revenue from parkingTicketsStream by calling an underlying
+	 * implementation based on threadingScheme and sorting the results by revenue.
+	 */
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
     	// Using the specified threading scheme, get an unsorted map of streets and their profitability
     	LOG.info("Sorting parking tickets using the {} and {} schemes.", threadingScheme, parsingScheme);
@@ -132,7 +136,6 @@ public class ParkingTicketsStats {
      * @param parkingTicketsStream
      * @return An unsorted Map of streets and revenues.
      */
-    //static Map<String, Integer> streetsByProfitabilityUsingMultipleThreads(BufferedReader parkingTicketsReader) {
     static Map<String, Integer> streetsByProfitabilityUsingMultipleThreads(InputStream parkingTicketsStream) {
     	int cores = Runtime.getRuntime().availableProcessors();
     	ExecutorService consumers = Executors.newFixedThreadPool(cores);
