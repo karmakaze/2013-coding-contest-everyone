@@ -4,7 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
-import java.io.CharArrayReader;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -23,7 +23,8 @@ public class ParkingTicketsStats {
 
 	enum ThreadingScheme {
 		SingleThreaded,		// Read and process tickets on the main thread
-		MultiThreaded		// Read on the current thread and process on multiple other threads
+		MultiThreaded,		// Read on the current thread and process on multiple other threads
+		Testing				// Testing
 	}
 	
 	enum ParsingScheme {
@@ -64,8 +65,11 @@ public class ParkingTicketsStats {
     			break;
     		
     		case MultiThreaded:
-    			unsortedProfitabilityByStreet = streetsByProfitabilityUsingMultipleThreads(parkingTicketsReader);
+    			unsortedProfitabilityByStreet = streetsByProfitabilityUsingMultipleThreads(parkingTicketsStream);
     			break;
+    			
+    		case Testing:
+    			unsortedProfitabilityByStreet = streetsByProfitabilityTesting(parkingTicketsReader);
     			
     		default:
     			throw new UnsupportedOperationException();
@@ -125,16 +129,19 @@ public class ParkingTicketsStats {
      * @param parkingTicketsStream
      * @return An unsorted Map of streets and revenues.
      */
-    static Map<String, Integer> streetsByProfitabilityUsingMultipleThreads(BufferedReader parkingTicketsReader) {
+    //static Map<String, Integer> streetsByProfitabilityUsingMultipleThreads(BufferedReader parkingTicketsReader) {
+    static Map<String, Integer> streetsByProfitabilityUsingMultipleThreads(InputStream parkingTicketsStream) {
     	int cores = Runtime.getRuntime().availableProcessors();
     	ExecutorService consumers = Executors.newFixedThreadPool(cores);
-    	ArrayList<Future<HashMap<String, Integer>>> futures = new ArrayList<Future<HashMap<String, Integer>>>();
+    	ArrayList<Future<HashMap<String, Integer>>> futures = new ArrayList<Future<HashMap<String, Integer>>>(30);
     	
-    	char[] dataChunk = null;
+    	byte[] dataChunk = null;
+    	int bytesRead = -1;
+    	int extraByte = -1;
+    	boolean foundCR = false;
     	BufferedReader dataChunkReader = null;
-    	String remainingLine = null;
-    	int charactersRead = -1;
-    	int remainingLength = 0;
+    	
+    	
     	
     	// Read in parkingTickets data in dataChunkSize chunks, then create TagDataChunkProcessor
     	// instances for each chunk and dispatched them to the consumers ExecutorService.
@@ -146,23 +153,40 @@ public class ParkingTicketsStats {
     			// to cover reading to the end of a line after dataChunkSize characters
     			// are read. That way each chunk ends with a complete line.
     			// Lines appear to be less than 100 characters long, normally.
-    			dataChunk = new char[dataChunkSize + 256];
-    			charactersRead = parkingTicketsReader.read(dataChunk, 0, dataChunkSize);
+    			dataChunk = new byte[dataChunkSize + 160];
+    			bytesRead = parkingTicketsStream.read(dataChunk, 0, dataChunkSize);
     			
-    			if (charactersRead != -1) {
-    				remainingLine = parkingTicketsReader.readLine();
-    				
-    				// Read to the end of a line and append it to dataChunk, if available
-    				if (remainingLine != null && (remainingLength = remainingLine.length()) > 0) {
-    					remainingLine.getChars(0, remainingLength, dataChunk, charactersRead);
-    					charactersRead += remainingLength;
-    				}
+    			if (bytesRead != -1) {
+    				// keep reading bytes until we find CRLF
+    				do {
+    					extraByte = parkingTicketsStream.read();
+    					
+    					if (extraByte == -1) {
+    						break;
+    					}
+    					
+    					if (extraByte == 13) {
+    						foundCR = true;
+    						continue;
+    					}
+    					
+    					if (foundCR) {
+    						if (extraByte == 10) {
+    							break;
+    						} else {
+    							foundCR = false;
+    							continue;
+    						}
+    					}
+    					
+    					dataChunk[bytesRead++] = (byte)extraByte;
+    				} while (true);
     				
     				// Create a TagDataChunkProcessor and submit it to the ExecutorService for running
-    				dataChunkReader = new BufferedReader(new CharArrayReader(dataChunk, 0, charactersRead));
+    				dataChunkReader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(dataChunk, 0, bytesRead)));
     				futures.add(consumers.submit(new TagDataChunkProcessor(dataChunkReader)));
     			}
-    		} while (charactersRead != -1);
+    		} while (bytesRead != -1);
     	} catch (IOException ioe) {
     		ioe.printStackTrace();
     	}
@@ -173,7 +197,7 @@ public class ParkingTicketsStats {
         // Stop accepting new dispatches and wait for all the chunk processors to finish
     	try {
     		consumers.shutdown();
-			consumers.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+			consumers.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
@@ -211,6 +235,23 @@ public class ParkingTicketsStats {
     	return accumulatedProfitabilityByStreet;
     }
     
+    static Map<String, Integer> streetsByProfitabilityTesting(BufferedReader parkingTicketsReader) {
+    	long procStartTime = System.currentTimeMillis();
+    	
+    	try {
+			while (parkingTicketsReader.readLine() != null) {
+				
+			}
+		} catch (IOException ioe) {
+			ioe.printStackTrace();
+		}
+		
+		long procDuration = System.currentTimeMillis() - procStartTime;
+        LOG.info("Duration of data reading and processing = {} ms", procDuration);
+    	
+        return null;
+    }
+    
     /**
      * The <code>TagDataChunkProcessor</code> Callable accepts a BufferedReader containing
      * parking tickets data to be read line-by-line and parsed into data fields. It provides
@@ -234,6 +275,9 @@ public class ParkingTicketsStats {
         	Integer totalFine = null;
             HashMap<String, Integer> unsortedProfitabilityByStreet = new HashMap<String, Integer>();
         	
+            // For each line from reader, use the ParkingTagData instance to parse the line
+            // and get the street name and fine amount, then accumulate the fines in
+            // unsortedProfitabilityByStreet.
             try {
             	while ((line = reader.readLine()) != null) {
                 	if (data.updateFromDataLine(line, parseSignificantDataOnly)) {
