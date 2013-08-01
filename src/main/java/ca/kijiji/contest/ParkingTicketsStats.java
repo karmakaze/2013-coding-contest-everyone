@@ -24,7 +24,7 @@ public class ParkingTicketsStats {
 	enum ThreadingScheme {
 		SingleThreaded,		// Read and process tickets on the main thread
 		MultiThreaded,		// Read on the current thread and process on multiple other threads
-		Testing				// Testing
+		Testing				// Testing - do not use
 	}
 	
 	enum ParsingScheme {
@@ -35,7 +35,10 @@ public class ParkingTicketsStats {
 
 	final static Logger LOG = LoggerFactory.getLogger(ParkingTicketsStats.class);
 	
+	// indicates whether to only parse set_fine_amount and address2, or all fields 
 	final static boolean parseSignificantDataOnly = true;
+	
+	// the amount of data to read at a time in the MultiThreaded scheme
 	final static int dataChunkSize = 10 * 1024 * 1024;
 	
 	final static ThreadingScheme threadingScheme = ThreadingScheme.MultiThreaded;
@@ -140,20 +143,24 @@ public class ParkingTicketsStats {
     	int extraByte = -1;
     	BufferedReader dataChunkReader = null;
     	
-    	// Throw away the first line of data in the input stream (the header)
+    	// Throw away the first line of data in the input stream (the header). This works by reading
+    	// the next byte if a CR is read, and breaking when a LF is read. It's sufficient to handle
+    	// CRLF (Windows) and LF (Unix) line endings. Not so much CR (Classic Mac) endings.
     	try {
     		do {
         		extraByte = parkingTicketsStream.read();
         		
-        		if (extraByte == 13) {
+        		if (extraByte == 13) { // CR
         			extraByte = parkingTicketsStream.read();
         		}
         		
-        		if (extraByte == 10) {
+        		if (extraByte == 10) { // LF
     				break;
     			}
         	} while (true);
     	} catch (IOException ioe) {
+    		LOG.error("Something went wrong skipping the first line (the headers).");
+    		ioe.printStackTrace();
     		return null;
     	}
     	
@@ -171,7 +178,10 @@ public class ParkingTicketsStats {
     			bytesRead = parkingTicketsStream.read(dataChunk, 0, dataChunkSize);
     			
     			if (bytesRead != -1) {
-    				// keep reading bytes until we find CRLF
+    				// Keep reading bytes until we find CRLF. Same caveats apply as the earlier
+    				// CRLF check. However, this has a side effect of writing a CR to dataChunk
+    				// if it isn't followed by a LF. This is probably "safe enough" for the
+    				// purposes of the contest.
     				do {
     					extraByte = parkingTicketsStream.read();
     					
@@ -196,7 +206,9 @@ public class ParkingTicketsStats {
     			}
     		} while (bytesRead != -1);
     	} catch (IOException ioe) {
+    		LOG.error("Something went wrong chunking the data.");
     		ioe.printStackTrace();
+    		return null;
     	}
     	
     	long chunkDuration = System.currentTimeMillis() - procStartTime;
@@ -207,7 +219,9 @@ public class ParkingTicketsStats {
     		consumers.shutdown();
 			consumers.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
 		} catch (InterruptedException e) {
+			LOG.error("Something went wrong waiting for all the TagDataChunkProcessors to finish.");
 			e.printStackTrace();
+			return null;
 		}
     	
     	long procDuration = System.currentTimeMillis() - procStartTime;
@@ -232,9 +246,12 @@ public class ParkingTicketsStats {
     			}
         	}
     	} catch (InterruptedException e) {
+    		LOG.error("Something went wrong fetching results via the futures.");
     		e.printStackTrace();
+    		return null;
     	} catch (ExecutionException e) {
     		e.printStackTrace();
+    		return null;
     	}
     	
     	long reduceDuration = System.currentTimeMillis() - reduceStartTime;
@@ -323,6 +340,8 @@ public class ParkingTicketsStats {
                 	}
                 }
             } catch (IOException ioe) {
+            	LOG.error("Something went wrong while accumulating the fine for a street.");
+            	ioe.printStackTrace();
             	return null;
             }
             
