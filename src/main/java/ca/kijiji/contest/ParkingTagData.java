@@ -167,10 +167,8 @@ public class ParkingTagData {
 		//Matcher matcher = locationPattern.matcher(location2);
 		locationMatcher.reset(location2);
     	if (locationMatcher.matches()) {
-    		//System.out.println(str + "," + matcher.group(2));
     		return locationMatcher.group(2).trim();
     	} else {
-    		//System.out.println(str + ",");
     		return null;
     	}
 	}
