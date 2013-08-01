@@ -42,18 +42,6 @@ public class ParkingTicketsStats {
 	final static ParsingScheme parsingScheme = ParsingScheme.Splitting;
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
-    	BufferedReader parkingTicketsReader = null;
-    	
-    	// Wrap parkingTicketsStream in a BufferedReader and read (throw away) the header line
-    	try {
-        	parkingTicketsReader = new BufferedReader(new InputStreamReader(parkingTicketsStream, "ascii"));
-        	parkingTicketsReader.readLine();
-        } catch (IOException ioe) {
-        	LOG.error("An error occurred creating parkingTicketsReader and reading the header line.");
-        	
-        	return null;
-        }
-    	
     	// Using the specified threading scheme, get an unsorted map of streets and their profitability
     	LOG.info("Sorting parking tickets using the {} and {} schemes.", threadingScheme, parsingScheme);
     	
@@ -61,7 +49,7 @@ public class ParkingTicketsStats {
     	
     	switch (threadingScheme) {
     		case SingleThreaded:
-    			unsortedProfitabilityByStreet = streetsByProfitabilityUsingSingleThread(parkingTicketsReader);
+    			unsortedProfitabilityByStreet = streetsByProfitabilityUsingSingleThread(parkingTicketsStream);
     			break;
     		
     		case MultiThreaded:
@@ -69,7 +57,7 @@ public class ParkingTicketsStats {
     			break;
     			
     		case Testing:
-    			unsortedProfitabilityByStreet = streetsByProfitabilityTesting(parkingTicketsReader);
+    			unsortedProfitabilityByStreet = streetsByProfitabilityTesting(parkingTicketsStream);
     			
     		default:
     			throw new UnsupportedOperationException();
@@ -96,7 +84,19 @@ public class ParkingTicketsStats {
      * @param parkingTicketsStream
      * @return An unsorted Map of streets and revenues.
      */
-    static Map<String, Integer> streetsByProfitabilityUsingSingleThread(BufferedReader parkingTicketsReader) {
+    static Map<String, Integer> streetsByProfitabilityUsingSingleThread(InputStream parkingTicketsStream) {
+    	BufferedReader parkingTicketsReader = null;
+    	
+    	// Wrap parkingTicketsStream in a BufferedReader and read (throw away) the header line
+    	try {
+        	parkingTicketsReader = new BufferedReader(new InputStreamReader(parkingTicketsStream, "ascii"));
+        	parkingTicketsReader.readLine();
+        } catch (IOException ioe) {
+        	LOG.error("An error occurred creating parkingTicketsReader and reading the header line.");
+        	
+        	return null;
+        }
+    	
     	long procStartTime = System.currentTimeMillis();
     	
     	Callable<HashMap<String, Integer>> processor = new TagDataChunkProcessor(parkingTicketsReader);
@@ -235,7 +235,19 @@ public class ParkingTicketsStats {
     	return accumulatedProfitabilityByStreet;
     }
     
-    static Map<String, Integer> streetsByProfitabilityTesting(BufferedReader parkingTicketsReader) {
+    static Map<String, Integer> streetsByProfitabilityTesting(InputStream parkingTicketsStream) {
+    	BufferedReader parkingTicketsReader = null;
+    	
+    	// Wrap parkingTicketsStream in a BufferedReader and read (throw away) the header line
+    	try {
+        	parkingTicketsReader = new BufferedReader(new InputStreamReader(parkingTicketsStream, "ascii"));
+        	parkingTicketsReader.readLine();
+        } catch (IOException ioe) {
+        	LOG.error("An error occurred creating parkingTicketsReader and reading the header line.");
+        	
+        	return null;
+        }
+    	
     	long procStartTime = System.currentTimeMillis();
     	
     	try {
