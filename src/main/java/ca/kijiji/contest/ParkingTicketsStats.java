@@ -147,11 +147,11 @@ public class ParkingTicketsStats {
         		
         		if (extraByte == 13) {
         			extraByte = parkingTicketsStream.read();
-        			
-        			if (extraByte == 10) {
-        				break;
-        			}
         		}
+        		
+        		if (extraByte == 10) {
+    				break;
+    			}
         	} while (true);
     	} catch (IOException ioe) {
     		return null;
@@ -181,11 +181,11 @@ public class ParkingTicketsStats {
     					
     					if (extraByte == 13) {
     						extraByte = parkingTicketsStream.read();
-    						
-    						if (extraByte == 10) {
-    							break;
-    						}
     					}
+    					
+    					if (extraByte == 10) {
+							break;
+						}
     					
     					dataChunk[bytesRead++] = (byte)extraByte;
     				} while (true);
