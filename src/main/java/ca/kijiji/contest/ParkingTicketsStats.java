@@ -141,7 +141,22 @@ public class ParkingTicketsStats {
     	boolean foundCR = false;
     	BufferedReader dataChunkReader = null;
     	
-    	
+    	// Throw away the first line of data in the input stream (the header)
+    	try {
+    		do {
+        		extraByte = parkingTicketsStream.read();
+        		
+        		if (extraByte == 13) {
+        			extraByte = parkingTicketsStream.read();
+        			
+        			if (extraByte == 10) {
+        				break;
+        			}
+        		}
+        	} while (true);
+    	} catch (IOException ioe) {
+    		return null;
+    	}
     	
     	// Read in parkingTickets data in dataChunkSize chunks, then create TagDataChunkProcessor
     	// instances for each chunk and dispatched them to the consumers ExecutorService.
