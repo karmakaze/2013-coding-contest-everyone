@@ -138,7 +138,6 @@ public class ParkingTicketsStats {
     	byte[] dataChunk = null;
     	int bytesRead = -1;
     	int extraByte = -1;
-    	boolean foundCR = false;
     	BufferedReader dataChunkReader = null;
     	
     	// Throw away the first line of data in the input stream (the header)
@@ -181,16 +180,10 @@ public class ParkingTicketsStats {
     					}
     					
     					if (extraByte == 13) {
-    						foundCR = true;
-    						continue;
-    					}
-    					
-    					if (foundCR) {
+    						extraByte = parkingTicketsStream.read();
+    						
     						if (extraByte == 10) {
     							break;
-    						} else {
-    							foundCR = false;
-    							continue;
     						}
     					}
     					
