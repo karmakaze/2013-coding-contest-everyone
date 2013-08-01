@@ -21,7 +21,7 @@ public class ParkingTicketsStats {
 
     // tools for the job threads
     public static ConcurrentHashMap<String, Integer> streets = new ConcurrentHashMap<String, Integer>();
-    private static final int threadPoolSize = 64; // speed seems to max out at 4 threads for my machine
+    private static final int threadPoolSize = 4; // speed seems to max out at 4 threads for my machine
 
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) throws Exception {
         LineReader lr = new LineReader(new BufferedReader(new InputStreamReader(parkingTicketsStream)));
@@ -42,7 +42,6 @@ public class ParkingTicketsStats {
         executor.awaitTermination(1, TimeUnit.MINUTES);
         while (!executor.isTerminated()) {
         }
-        LOG.info("long max:" + Long.MAX_VALUE);
 
         // the cool quest for "a sortedMap sorted by value not keys" google guava to the rescue
         // thanks to http://stackoverflow.com/questions/109383/how-to-sort-a-mapkey-value-on-the-values-in-java for a nice solution
