@@ -3,7 +3,6 @@ package ca.kijiji.contest;
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicIntegerArray;
 
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
@@ -15,7 +14,7 @@ public class OpenStringIntHashMap {
 
 	private final int capacity;
 	private final String[] keys;
-	private final AtomicIntegerArray hashAndValues;
+	private final long[] hashAndValues; // each long is value << 32 | hash
 
 	private final HashFunction murmur3 = Hashing.murmur3_32();
 
@@ -24,137 +23,161 @@ public class OpenStringIntHashMap {
 	public OpenStringIntHashMap(int capacity) {
 		this.capacity = capacity;
 		keys = new String[capacity];
-		hashAndValues = new AtomicIntegerArray(2*capacity);
+		hashAndValues = new long[capacity];
 		pad7 = pad6 = pad5 = pad4 = pad3 = pad2 = pad1 = 7;
 		Pad1 = Pad2 = Pad3 = Pad4 = Pad5 = Pad6 = Pad7 = 7;
 	}
 
 	public void clear() {
-		Arrays.fill(keys, 0);
-		int n2 = 2 * keys.length;
-		for (int i = 0; i < n2; i++) {
-			hashAndValues.set(i, 0);
+		synchronized (keys) {
+			Arrays.fill(keys, 0);
+			Arrays.fill(hashAndValues, 0);
 		}
 	}
 
 	public int get(String key) {
 		int hash = hash(key);
-		int i0 = hash % capacity;
-		if (i0 < 0) i0 += capacity;
+		int cur = hash % capacity;
+		if (cur < 0) cur += capacity;
 
-		final int i2 = i0 * 2;
+		int v = scanValueHash(hash, cur, capacity);
+		if (v == NO_ELEMENT_VALUE) {
+			v = scanValueHash(hash, 0, cur);
+		}
+		return v;
+	}
 
-		for (int i = i2; i < capacity * 2; i += 2) {
-			int h = hashAndValues.get(i);
-			if (h == hash) {
-				return hashAndValues.get(i + 1);
-			}
-			else if (h == 0) {
-				return NO_ELEMENT_VALUE;
+	public void put(String key, int value) {
+		int hash = hash(key);
+		int cur = hash % capacity;
+		if (cur < 0) cur += capacity;
+
+		if (!put(key, hash, value, cur, capacity)) {
+			if (!put(key, hash, value, 0, cur)) {
+				throw new IllegalStateException("Exceeded capacity "+ capacity);
 			}
 		}
-		for (int i = 0; i < i2; i += 2) {
-			int h = hashAndValues.get(i);
-			if (h == hash) {
-				return hashAndValues.get(i + 1);
+	}
+
+	public void adjustOrPutValue(String key, int value) {
+		int hash = hash(key);
+		int cur = hash % capacity;
+		if (cur < 0) cur += capacity;
+
+		if (!adjustOrPutValue(key, hash, value, cur, capacity)) {
+			if (!adjustOrPutValue(key, hash, value, 0, cur)) {
+				throw new IllegalStateException("Exceeded capacity "+ capacity);
+			}
+		}
+
+	}
+
+	/**
+	 * @param hash
+	 * @param cur
+	 * @param end
+	 * @return the found value with hash, otherwise NO_ELEMENT_VALUE
+	 */
+	private int scanValueHash(int hash, int cur, int end) {
+		for (; cur < end; cur++) {
+			long vh = hashAndValues[cur];
+			int h = (int) vh;
+			if (h  == hash) {
+				synchronized (keys) {
+					return (int) (hashAndValues[cur] >>> 32);
+				}
 			}
 			else if (h == 0) {
+				synchronized (keys) {
+					do {
+						vh = hashAndValues[cur];
+						h = (int) vh;
+						if (h  == hash) {
+							return (int) (vh >>> 32);
+						}
+					} while (h != 0 && ++cur < end);
+				}
 				return NO_ELEMENT_VALUE;
 			}
 		}
 		return NO_ELEMENT_VALUE;
 	}
 
-	public void put(String key, int value) {
-		int hash = hash(key);
-		int i0 = hash % capacity;
-		if (i0 < 0) i0 += capacity;
-
-		final int i2 = i0 * 2;
-
-		for (int i = i2; i < capacity * 2; i += 2) {
-			if (hashAndValues.get(i) == hash) {
-				hashAndValues.set(i + 1, value);
-				return;
-			}
-			else if (hashAndValues.compareAndSet(i, 0, hash)) {
-				hashAndValues.set(i + 1, value);
+	private boolean put(String key, int hash, int value, int cur, int end) {
+		for (; cur < end; cur++) {
+			long vh = hashAndValues[cur];
+			int h = (int) vh;
+			if (h == hash) {
 				synchronized (keys) {
-					keys[i/2] = key;
+					hashAndValues[cur] = (long)value << 32 | (long)h & 0x00FFFFFFFF;
 				}
-				return;
+				return true;
+			}
+			else if (h == 0) {
+				synchronized (keys) {
+					do {
+						vh = hashAndValues[cur];
+						h = (int) vh;
+						if (h == hash) {
+							hashAndValues[cur] = (long)value << 32 | (long)h & 0x00FFFFFFFF;
+							return true;
+						}
+						else if (h == 0) {
+							hashAndValues[cur] = (long)value << 32 | (long)h & 0x00FFFFFFFF;
+							keys[cur] = key;
+							return true;
+						}
+					} while (++cur < end);
+				}
+				return false;
 			}
 		}
-		for (int i = 0; i < i2; i += 2) {
-			if (hashAndValues.get(i) == hash) {
-				hashAndValues.set(i + 1, value);
-				return;
-			}
-			else if (hashAndValues.compareAndSet(i, 0, hash)) {
-				hashAndValues.set(i + 1, value);
-				synchronized (keys) {
-					keys[i/2] = key;
-				}
-				return;
-			}
-		}
-		throw new IllegalStateException("Exceeded capacity "+ capacity);
+		return false;
 	}
 
-	public void adjustOrPutValue(String key, int value) {
-		int hash = hash(key);
-		int i0 = hash % capacity;
-		if (i0 < 0) i0 += capacity;
-
-		final int i2 = i0 * 2;
-
-		for (int i = i2; i < capacity * 2; i += 2) {
-			if (hashAndValues.get(i) == hash) {
-				hashAndValues.addAndGet(i + 1, value);
-				return;
-			}
-			else if (hashAndValues.compareAndSet(i, 0, hash)) {
-				hashAndValues.addAndGet(i + 1, value);
+	private boolean adjustOrPutValue(String key, int hash, int value, int cur, int end) {
+		for (; cur < end; cur++) {
+			long vh = hashAndValues[cur];
+			int h = (int) vh;
+			if (h == hash) {
 				synchronized (keys) {
-					keys[i/2] = key;
+					hashAndValues[cur] += (long)value << 32;
 				}
-				return;
+				return true;
+			}
+			else if (h == 0) {
+				synchronized (keys) {
+					do {
+						vh = hashAndValues[cur];
+						h = (int) vh;
+						if (h == hash) {
+							hashAndValues[cur] += (long)value << 32;
+							return true;
+						} else if (h == 0) {
+							hashAndValues[cur] = (long)value << 32 | (long)h & 0x00FFFFFFFF;
+							keys[cur] = key;
+							return true;
+						}
+					} while (++cur < end);
+				}
+				return false;
 			}
 		}
-		for (int i = 0; i < i2; i += 2) {
-			if (hashAndValues.get(i) == hash) {
-				hashAndValues.addAndGet(i + 1, value);
-				return;
-			}
-			else if (hashAndValues.compareAndSet(i, 0, hash)) {
-				hashAndValues.addAndGet(i + 1, value);
-				synchronized (keys) {
-					keys[i/2] = key;
-				}
-				return;
-			}
-		}
-		throw new IllegalStateException("Exceeded capacity "+ capacity);
+		return false;
 	}
 
 	public void putAllTo(Map<String, Integer> dest) {
-		synchronized (keys) {
-			int i = 0;
-			for (String key : keys) {
-				if (key != null) {
-					dest.put(key, hashAndValues.get(i*2 + 1));
-				}
-				i++;
-			}
-		}
+		putRangeTo(0, capacity, dest);
 	}
 
-	protected void putRangeTo(int start, int end, Map<String, Integer> dest) {
-		for (int i = start; i < end; i++) {
-			String key = keys[i];
-			if (key != null) {
-				synchronized (dest) {
-					dest.put(key, hashAndValues.get(i*2 + 1));
+	protected void putRangeTo(int cur, int end, Map<String, Integer> dest) {
+		synchronized (keys) {
+			String key;
+			for (; cur < end; cur++) {
+				if ((key = keys[cur]) != null) {
+					synchronized (dest) {
+						dest.put(key, (int) (hashAndValues[cur] >> 32));
+					}
 				}
 			}
 		}
