@@ -1,15 +1,19 @@
 package ca.kijiji.contest;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.lessThan;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.SortedMap;
+
 import org.hamcrest.Matcher;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.InputStream;
-import java.util.SortedMap;
-
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.*;
 
 public class ParkingTicketsStatsTest {
     private static final Logger LOG = LoggerFactory.getLogger(ParkingTicketsStatsTest.class);
@@ -20,6 +24,9 @@ public class ParkingTicketsStatsTest {
 
     @Test
     public void testSortStreetsByProfitability() throws Exception {
+//    	InputStreamReader istream = new InputStreamReader(System.in) ;
+//    	BufferedReader bufRead = new BufferedReader(istream) ;
+//    	bufRead.readLine();
         long startTime = System.currentTimeMillis();
 
         InputStream parkingTicketsStream = this.getClass().getResourceAsStream(PARKING_TAGS_DATA_2012_CSV_PATH);

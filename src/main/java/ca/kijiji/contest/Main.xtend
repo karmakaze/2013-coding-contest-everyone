@@ -1,3 +1,4 @@
+// Author: Furkan Tufekci
 package ca.kijiji.contest
 
 import java.io.BufferedReader
@@ -11,35 +12,34 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
+
 import static extension java.lang.Integer.*
 
 class ParkingTicketsStats {
-	val static addr = new ConcurrentHashMap<String,Integer>
+	val static streets = new ConcurrentHashMap<String,Integer>
 	
 	def static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream) {
 		val reader = parkingTicketsStream.toBufferedReader
 		reader.readLine // skip header
 		reader.doLinesConcurrent[ var it = split(",")
-			var street = extractStreet; var price = extractPrice
-			addr.put(street, addr.get(street).add(price))
+			val street = extractStreet
+			val price = extractPrice
+			val oldPrice = streets.get(street)
+			streets.put(street, oldPrice.add(price))
 		]
-		val sorted_map = new TreeMap(new ValueComparator(addr))
-		sorted_map.putAll(addr)
-		return sorted_map
+		val sorted_streets = new TreeMap(new ValueComparator(streets))
+		sorted_streets.putAll(streets)
+		return sorted_streets
 	}
 	
 	def static doLinesConcurrent(BufferedReader reader, (String)=>void fn){
 		var line = ""
-		var s = Executors.newFixedThreadPool(4)
+		val threads = Executors.newFixedThreadPool(4)
 		while((line = reader.readLine) != null){
-			s.execute(new LineProcessor(line, fn))
+			threads.execute(new LineProcessor(line, fn))
 		}
-		s.shutdown
-		s.awaitTermination(10,TimeUnit.SECONDS)
-	}
-	
-	def static toBufferedReader(InputStream stream){
-		new BufferedReader(new InputStreamReader(stream))
+		threads.shutdown
+		threads.awaitTermination(10,TimeUnit.SECONDS)
 	}
 	
 	val static trimPattern = Pattern.compile("(^[0-9]*\\s+|\\s(ST|AVE|SQ|RD"+
@@ -49,11 +49,14 @@ class ParkingTicketsStats {
 	def static extractStreet(String[] str){trimPattern.matcher(str.get(7)).replaceAll("")}
 	def static extractPrice(String[] str){str.get(4).parseInt}
 	def static add(Integer a, Integer b){if(a==null) b else a+b}
+	def static toBufferedReader(InputStream stream){
+		new BufferedReader(new InputStreamReader(stream))
+	}
 }
 
 class LineProcessor implements Runnable{
-	String line
-	(String)=>void fn
+	val String line
+	val (String)=>void fn
 	
 	new(String line, (String)=>void fn){
 		this.line = line
@@ -64,7 +67,7 @@ class LineProcessor implements Runnable{
 }
 
 class ValueComparator implements Comparator<String> {
-    Map<String, Integer> map
+    val Map<String, Integer> map
     new(Map<String, Integer> base) {this.map = base}
     override def int compare(String a, String b) {return map.get(b) - map.get(a)}
 }
