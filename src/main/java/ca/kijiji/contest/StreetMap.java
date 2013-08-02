@@ -12,7 +12,12 @@ public class StreetMap extends TreeMap<String, Integer> {
     public Integer get(Object key) {
 	// Shortcut method: it's faster to retrieve directly into the underlying map, it does 
        // not involve use of the comparator but only of the hashcode
-	return unsortedstreets.get((String) key).getProfit();
+       Street s = unsortedstreets.get((String) key); 
+       if (s != null) {
+	   return s.getProfit();
+       } else {
+	   return null;
+       }
     }
 
     private static class StreetComparator implements Comparator<String>, Serializable {
@@ -26,6 +31,20 @@ public class StreetMap extends TreeMap<String, Integer> {
 
 	@Override
 	public int compare(String o1, String o2) {
+	    if (o1 == o2) {
+		return 0;
+	    }
+	    if (o1 == null) {
+		return -1;
+	    }
+	    
+	    if (o2 == null) {
+		return 1;
+	    }
+	    
+	    if (o1.equals(o2)) {
+		return 0;
+	    }
 	    Street s1 = unsortedstreets.get(o1);
 	    if (s1==null) {
 		return -1;
@@ -34,6 +53,7 @@ public class StreetMap extends TreeMap<String, Integer> {
 	    if (s2 == null) {
 		return 1;
 	    }
+	    
 	    int p1 = s1.getProfit();
 	    int p2 = s2.getProfit();
 	    // Sort in descending order
