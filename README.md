@@ -30,8 +30,10 @@ Here are some solutions I found neat:
 
 - JordanMilne (Seems to like python and low level processing, be it captchas, images or odd filesystem compressions)
     - https://github.com/JordanMilne/2013-coding-contest/blob/master/src/main/java/ca/kijiji/contest
-    - Some really interesting thoughts on threading for performace. (considering how little thought I gave it, I find all threading talk interesting now, haha)
+    - Some really interesting thoughts on threading for performance. (considering how little thought I gave it, I find all threading talk interesting now, haha)
         - // Use as many workers as we have free cores, up to a maximum of 3 workers, always using at least one.
         - // A single worker thread is fastest when the main thread is wasting its time skipping tickets anyways.
         
-        
+- ftufek
+    - https://github.com/ftufek/2013-coding-contest/blob/master/src/main/java/ca/kijiji/contest/
+    - Use of xtend. Didn't even know xtend was a language... huh.
