@@ -1,6 +1,5 @@
 package ca.kijiji.contest;
 
-import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -184,14 +183,15 @@ public class OpenStringIntHashMap {
 	}
 
 	private int hash(String key) {
-		try {
-			int h = murmur3.hashBytes(key.getBytes("UTF-8")).asInt();
-			if (h == 0) h = capacity;
-			return h;
-		}
-		catch (UnsupportedEncodingException e) {
-			e.printStackTrace();
-			return 0;
-		}
+		int h = 0;
+		char[] buf = new char[key.length()];
+		key.getChars(0, key.length(), buf, 0);
+
+		for (int i = 0; i < key.length(); i++) {
+			char c = buf[i];
+			h = (h << 4) | (h >>> 28);
+			h = h * 47 + ((c == ' ') ? 0 : (int)c & 0x00FF - 64);
+ 		}
+		return h;
 	}
 }
