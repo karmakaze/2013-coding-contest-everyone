@@ -62,13 +62,8 @@ public class ParkingTicketsStats {
     public static String cleanupStreetName(String street) {
         // cleanup street name
         street = specialChars.matcher(street).replaceAll("").trim();
-        street = leadingDigits.matcher(street).replaceAll("").trim();
-        street = trailingDigits.matcher(street).replaceAll("").trim();
-        if (street.contains("UNIT")) {
-            street = unit1.matcher(street).replaceAll("").trim();
-            street = unit2.matcher(street).replaceAll("").trim();
-            street = unit3.matcher(street).replaceAll("").trim();
-        }
+        street = addressDigits.matcher(street).replaceAll("").trim();
+        street = unit.matcher(street).replaceAll("").trim();
         street = compass.matcher(street).replaceAll("").trim();
         street = streetType.matcher(street).replaceAll("").trim();
 
@@ -87,12 +82,9 @@ public class ParkingTicketsStats {
     /* some pre-compiled REGEX patterns for scrubbing, used by cleanupStreetName */
     /* remove possible typos and special chars for example <=>!@#$%^&*-+()'?".,[]:;`/\   */
     private static final Pattern specialChars = Pattern.compile("[\\<\\=\\>\\!\\@\\#\\$\\%\\^\\&\\*\\-\\+\\(\\)\\'\\?\\\"\\.\\,\\[\\]\\:\\;\\`\\/\\\\]");
-    private static final Pattern leadingDigits = Pattern.compile("\\d+[A-Z]? ");
-    private static final Pattern trailingDigits = Pattern.compile("\\d+[A-Z]?$");
+    private static final Pattern addressDigits = Pattern.compile("\\d+[A-Z ]?");
     // if(street.contains("UNIT")) {
-    private static final Pattern unit1 = Pattern.compile(" (NR UNIT|UNIT)");
-    private static final Pattern unit2 = Pattern.compile("^UNIT ");
-    private static final Pattern unit3 = Pattern.compile(" NEAR$");
+    private static final Pattern unit = Pattern.compile("(^UNIT | (NR UNIT|UNIT|NEAR)$)");
     // compass directions & street types
     private static final Pattern compass = Pattern.compile(" (N|NORTH|E|EAST|S|SOUTH|W|WEST)$");
     private static final Pattern streetType = Pattern.compile(" (ROAD|R|RD|CRESCENT|CRES|STREET|STEET|STT|STR|T|ST|GATE|GT|" +

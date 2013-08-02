@@ -33,7 +33,7 @@ public class JobThread implements Runnable {
         String streetOrig = tokens[7]; // location 2
         String street = streetOrig.toUpperCase().trim();
         street = ParkingTicketsStats.cleanupStreetName(street);
-
+        
         // add profit to running total
         Integer tmp = ParkingTicketsStats.streets.get(street);
         if (tmp == null) {
