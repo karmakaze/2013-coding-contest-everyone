@@ -42,9 +42,6 @@ public class StreetMap extends TreeMap<String, Integer> {
 		return 1;
 	    }
 	    
-	    if (o1.equals(o2)) {
-		return 0;
-	    }
 	    Street s1 = unsortedstreets.get(o1);
 	    if (s1==null) {
 		return -1;
@@ -57,7 +54,11 @@ public class StreetMap extends TreeMap<String, Integer> {
 	    int p1 = s1.getProfit();
 	    int p2 = s2.getProfit();
 	    // Sort in descending order
-	    return p2 - p1;
+	    int r = p2 - p1;
+	    if (r == 0) {
+		return o1.compareTo(o2);
+	    }
+	    return r;
 	}
     };
 
