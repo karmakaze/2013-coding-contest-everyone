@@ -22,7 +22,7 @@ public class ParkingTicketsStats {
 
 	// use small blocking queue size to limit read-ahead for higher cache hits
 	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(2 * nWorkers - 1, true);
-	static final int SIZE = 16 * 1024;
+	static final int SIZE = 32 * 1024;
     static final OpenStringIntHashMap themap = new OpenStringIntHashMap(SIZE); // 8772
 	static final int[] END_OF_WORK = new int[0];
 
