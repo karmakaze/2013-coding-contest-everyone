@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 
 public class ParkingTicketsStats {
 
-	static final byte[] data = new byte[4 * 1024 * 1024];
+	static final byte[] data = new byte[2 * 1024 * 1024];
 
 	static final Pattern namePattern = Pattern.compile("([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)");
 
@@ -21,8 +21,8 @@ public class ParkingTicketsStats {
 	static final int nWorkers = Runtime.getRuntime().availableProcessors();
 
 	// use small blocking queue size to limit read-ahead for higher cache hits
-	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(2 * nWorkers - 1, true);
-	static final int SIZE = 32 * 1024;
+	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(2 * nWorkers - 1, false);
+	static final int SIZE = 20 * 1024;
     static final OpenStringIntHashMap themap = new OpenStringIntHashMap(SIZE); // 8772
 	static final int[] END_OF_WORK = new int[0];
 
