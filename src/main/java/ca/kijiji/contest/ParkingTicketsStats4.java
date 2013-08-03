@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 
 public class ParkingTicketsStats4 {
 
-	static final byte[] data = new byte[2 * 1024 * 1024];
+	static final byte[] data = new byte[4 * 1024 * 1024];
 
 	static final Pattern namePattern = Pattern.compile("([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)");
 
@@ -21,9 +21,9 @@ public class ParkingTicketsStats4 {
 	static final int nWorkers = Runtime.getRuntime().availableProcessors();
 
 	// use small blocking queue size to limit read-ahead for higher cache hits
-	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(2 * nWorkers - 3, true);
-	static final int SIZE = 12800;
-    static final OpenStringIntHashMap themap = new OpenStringIntHashMap(SIZE); // 8770
+	static final ArrayBlockingQueue<int[]> byteArrayQueue = new ArrayBlockingQueue<int[]>(2 * nWorkers - 1, true);
+	static final int SIZE = 16 * 1024;
+    static final OpenStringIntHashMap themap = new OpenStringIntHashMap(SIZE); // 8772
 	static final int[] END_OF_WORK = new int[0];
 
 	static volatile boolean wasrun;
@@ -60,7 +60,7 @@ public class ParkingTicketsStats4 {
     		int read_end = 0;
     		int block_start = 0;
     		int block_end = 0;
-    		for (int read_amount = 256 * 1024; (read_amount = parkingTicketsStream.read(data, read_end, read_amount)) > 0; ) {
+    		for (int read_amount = 512 * 1024; (read_amount = parkingTicketsStream.read(data, read_end, read_amount)) > 0; ) {
     			bytes_read += read_amount;
     			read_end += read_amount;
     			block_start = block_end;
@@ -137,16 +137,16 @@ public class ParkingTicketsStats4 {
 		}
 
     	final SortedMap<String, Integer> sorted = new TreeMap<String, Integer>(new Comparator<String>() {
-			public int compare(String o1, String o2) {
-				int c = themap.get(o2) - themap.get(o1);
+			public int compare(String k1, String k2) {
+				int c = themap.get(k2) - themap.get(k1);
 				if (c != 0) return c;
-				return o2.compareTo(o1);
+				return k1.compareTo(k2);
 			}});
 
     	Thread[] threads = new Thread[2];
     	for (int t = 0; t < 2; t++) {
-    		final int start = t == 0 ? 0 : SIZE / 2;
-    		final int end = t == 0 ? SIZE / 2 : SIZE;
+    		final int start = t == 0 ? 0 : SIZE/2;
+    		final int end = t == 0 ? SIZE/2 : SIZE;
 
         	threads[t] = new Thread(null, null, "gather"+ t, 2048) {
         		public void run() {
@@ -159,6 +159,7 @@ public class ParkingTicketsStats4 {
     	for (Thread thread : threads) {
 	    	try { thread.join(); } catch (InterruptedException e) {}
     	}
+
         return sorted;
     }
 
@@ -166,7 +167,8 @@ public class ParkingTicketsStats4 {
      * worker parallel worker takes blocks of bytes read and processes them
      */
     static final void worker() {
-		Matcher nameMatcher = namePattern.matcher("");
+		final Matcher nameMatcher = namePattern.matcher("");
+		final StringBuilder location = new StringBuilder();
 
 		for (;;) {
 			int[] block_start_end;
@@ -192,24 +194,25 @@ public class ParkingTicketsStats4 {
 			int start = block_start;
 			int column = 0;
 			int fine = 0;
-			String location = null;
 			// process block
 			while (start < block_end) {
 				int end = start;
-				while (end < block_end && data[end] != ',' && data[end] != '\n') { end++; }
 
 				if (column == 4) {
-		    		final String set_fine_amount = new String(data, start, end - start);
-		    		try {
-			    		fine = Integer.parseInt(set_fine_amount);
-		    		}
-		    		catch (final NumberFormatException e) {
-		    			System.out.print(e.getClass().getSimpleName() +": "+ set_fine_amount);
-		    		}
+					fine = 0;
+					while (start < block_end && (char)data[start] >= '0' && (char)data[start] <= '9') {
+						fine = fine * 10 + (char)data[start++] - '0';
+					}
+					end = start;
+					while (end < block_end && data[end] != ',' && data[end] != '\n') { end++; }
 				}
 				else if (column == 7) {
+					while (end < block_end && data[end] != ',' && data[end] != '\n') { end++; }
+
 					if (fine > 0) {
-						location = new String(data, start, end - start);
+						for (location.setLength(0); start < end; ) {
+							location.append((char) data[start++]);
+						}
 
 			    		nameMatcher.reset(location);
 			    		if (nameMatcher.find()) {
@@ -218,11 +221,12 @@ public class ParkingTicketsStats4 {
 		    			}
 					}
 				}
+				else {
+					while (end < block_end && data[end] != ',' && data[end] != '\n') { end++; }
+				}
 
 				column++;
 				if (end < block_end && data[end] == '\n') {
-					fine = 0;
-					location = null;
 					column = 0;
 				}
 				start = end + 1;

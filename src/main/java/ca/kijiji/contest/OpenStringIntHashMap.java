@@ -2,9 +2,7 @@ package ca.kijiji.contest;
 
 import java.util.Arrays;
 import java.util.Map;
-
-import com.google.common.hash.HashFunction;
-import com.google.common.hash.Hashing;
+import java.util.concurrent.atomic.AtomicIntegerArray;
 
 public class OpenStringIntHashMap {
 	public volatile long pad7, pad6, pad5, pad4, pad3, pad2, pad1;
@@ -13,25 +11,26 @@ public class OpenStringIntHashMap {
 
 	private final int capacity;
 	private final String[] keys;
-	private final long[] hashAndValues; // each long is value << 32 | hash
-
-	private final HashFunction murmur3 = Hashing.murmur3_32();
+	private final int[] hashes;
+	private final AtomicIntegerArray values;
 
 	public volatile long Pad1, Pad2, Pad3, Pad4, Pad5, Pad6, Pad7;
 
 	public OpenStringIntHashMap(int capacity) {
 		this.capacity = capacity;
 		keys = new String[capacity];
-		hashAndValues = new long[capacity];
+		hashes = new int[capacity];
+		values = new AtomicIntegerArray(capacity);
 		pad7 = pad6 = pad5 = pad4 = pad3 = pad2 = pad1 = 7;
 		Pad1 = Pad2 = Pad3 = Pad4 = Pad5 = Pad6 = Pad7 = 7;
 	}
 
 	public void clear() {
-		synchronized (keys) {
+		synchronized (this) {
 			Arrays.fill(keys, 0);
-			Arrays.fill(hashAndValues, 0);
+			Arrays.fill(hashes, 0);
 		}
+		for (int i = 0; i < capacity; i++) values.set(0,  0);
 	}
 
 	public int get(String key) {
@@ -39,9 +38,9 @@ public class OpenStringIntHashMap {
 		int cur = hash % capacity;
 		if (cur < 0) cur += capacity;
 
-		int v = scanValueHash(hash, cur, capacity);
+		int v = scanValueHash(key, hash, cur, capacity);
 		if (v == NO_ELEMENT_VALUE) {
-			v = scanValueHash(hash, 0, cur);
+			v = scanValueHash(key, hash, 0, cur);
 		}
 		return v;
 	}
@@ -68,7 +67,6 @@ public class OpenStringIntHashMap {
 				throw new IllegalStateException("Exceeded capacity "+ capacity);
 			}
 		}
-
 	}
 
 	/**
@@ -77,26 +75,23 @@ public class OpenStringIntHashMap {
 	 * @param end
 	 * @return the found value with hash, otherwise NO_ELEMENT_VALUE
 	 */
-	private int scanValueHash(int hash, int cur, int end) {
+	private int scanValueHash(String key, int hash, int cur, int end) {
 		for (; cur < end; cur++) {
-			long vh = hashAndValues[cur];
-			int h = (int) vh;
-			if (h  == hash) {
-				synchronized (keys) {
-					return (int) (hashAndValues[cur] >>> 32);
-				}
+			int h = hashes[cur];
+			if (h == hash) {
+				return values.get(cur);
 			}
 			else if (h == 0) {
-				synchronized (keys) {
+				synchronized (this) {
 					do {
-						vh = hashAndValues[cur];
-						h = (int) vh;
-						if (h  == hash) {
-							return (int) (vh >>> 32);
+						h = hashes[cur];
+						if (h == hash) {
+							return values.get(cur);
 						}
 					} while (h != 0 && ++cur < end);
+
+					return NO_ELEMENT_VALUE;
 				}
-				return NO_ELEMENT_VALUE;
 			}
 		}
 		return NO_ELEMENT_VALUE;
@@ -104,62 +99,60 @@ public class OpenStringIntHashMap {
 
 	private boolean put(String key, int hash, int value, int cur, int end) {
 		for (; cur < end; cur++) {
-			long vh = hashAndValues[cur];
-			int h = (int) vh;
+			int h = hashes[cur];
 			if (h == hash) {
-				synchronized (keys) {
-					hashAndValues[cur] = (long)value << 32 | (long)h & 0x00FFFFFFFF;
+				synchronized (this) {
+					values.set(cur,  value);
+					return true;
 				}
-				return true;
 			}
 			else if (h == 0) {
-				synchronized (keys) {
+				synchronized (this) {
 					do {
-						vh = hashAndValues[cur];
-						h = (int) vh;
+						h = hashes[cur];
 						if (h == hash) {
-							hashAndValues[cur] = (long)value << 32 | (long)h & 0x00FFFFFFFF;
+							values.set(cur, value);
 							return true;
 						}
 						else if (h == 0) {
-							hashAndValues[cur] = (long)value << 32 | (long)h & 0x00FFFFFFFF;
+							values.set(cur, value);
+							hashes[cur] = hash;
 							keys[cur] = key;
 							return true;
 						}
 					} while (++cur < end);
+
+					return false;
 				}
-				return false;
 			}
 		}
 		return false;
 	}
 
-	private boolean adjustOrPutValue(String key, int hash, int value, int cur, int end) {
+	private final boolean adjustOrPutValue(String key, int hash, int value, int cur, int end) {
 		for (; cur < end; cur++) {
-			long vh = hashAndValues[cur];
-			int h = (int) vh;
+			int h = hashes[cur];
 			if (h == hash) {
-				synchronized (keys) {
-					hashAndValues[cur] += (long)value << 32;
-				}
+				values.getAndAdd(cur, value);
 				return true;
 			}
 			else if (h == 0) {
-				synchronized (keys) {
+				synchronized (this) {
 					do {
-						vh = hashAndValues[cur];
-						h = (int) vh;
+						h = hashes[cur];
 						if (h == hash) {
-							hashAndValues[cur] += (long)value << 32;
+							values.getAndAdd(cur, value);
 							return true;
 						} else if (h == 0) {
-							hashAndValues[cur] = (long)value << 32 | (long)h & 0x00FFFFFFFF;
+							values.getAndAdd(cur, value);
+							hashes[cur] = hash;
 							keys[cur] = key;
 							return true;
 						}
 					} while (++cur < end);
+
+					return false;
 				}
-				return false;
 			}
 		}
 		return false;
@@ -170,12 +163,11 @@ public class OpenStringIntHashMap {
 	}
 
 	protected void putRangeTo(int cur, int end, Map<String, Integer> dest) {
-		synchronized (keys) {
-			String key;
-			for (; cur < end; cur++) {
+		synchronized (this) {
+			for (String key; cur < end; cur++) {
 				if ((key = keys[cur]) != null) {
 					synchronized (dest) {
-						dest.put(key, (int) (hashAndValues[cur] >> 32));
+						dest.put(key, values.get(cur));
 					}
 				}
 			}
@@ -183,15 +175,12 @@ public class OpenStringIntHashMap {
 	}
 
 	private int hash(String key) {
-		int h = 0;
-		char[] buf = new char[key.length()];
-		key.getChars(0, key.length(), buf, 0);
+		int hash = 0;
 
-		for (int i = 0; i < key.length(); i++) {
-			char c = buf[i];
-			h = (h << 4) | (h >>> 28);
-			h = h * 47 + ((c == ' ') ? 0 : (int)c & 0x00FF - 64);
+		int l = key.length();
+		for (int i = 0; i < l; i++) {
+            hash = (16777619 * hash) ^ key.charAt(i);
  		}
-		return h;
+		return hash;
 	}
 }
