@@ -1,87 +1,23 @@
-So you think you can code, eh?
-==============================
+So here's my solution, seeing that everyone else is posting theirs.
 
-The [Kijiji](http://www.kijiji.ca) Development Team has a great challenge for you.
+Core
+------
 
-Armed with your JVM language of choice, your mission is to find out the most profitable streets of Toronto in terms of
-parking tickets (profitable for the city that is).
+The key concept is the use of MapReduce, which separates the task into two distinctive stages that run concurrently and without synchronization.
 
-On its open data portal, the City of Toronto published the complete list of
-[Parking tickets distributed in 2012](http://www1.toronto.ca/wps/portal/contentonly?vgnextoid=ca20256c54ea4310VgnVCM1000003dd60f89RCRD)
+Most of the other solutions out there requires synchronization when the result is collected (such as using a single ConcurrentHashMap to collect results), whereas the MapReduce process uses an array of 4 HashMap (per "map" thread) each collecting specific values (string.hashcode mod 4), then 4 ("reduce") threads take one of the item in the array of 4 HashMaps and combine them together. This means that each thread uses its own memory space and no synchronization is necessary, thus high performance.
 
-Take a look at their explanation spreadsheet to understand the format of their data.
+Reading the input in large chunks and splitting it fairly often (so threads don't go idle) is necessary. Line splitting is done on individual threads to reduce work on the IO thread as much as possible. I've seen this in many of the solutions posted on Github.
 
-- Check-out this project
-- Download the 2012 data and extract it into src/test/resources
-- Make the test case pass
-- Run 'mvn package' to create an archive target/kijiji-coding-contest.tar containing your pom.xml and src/main
-- Send this archive by e-mail to coding-contest@kijiji.ca before July 31st, 2013 at 11:59pm
+Other Optimizations
+------
 
-You can add any library you want to the pom.xml but don't modify the test class.
+One thing I've noticed is that String.split() is very slow. This is mostly because of copying the char[] many times and creating the new String objects.
 
-Prize
-=====
+As an optimization, MutableString is created to reduce the overhead of String creation and manipulation (such as .split(), .substring, etc). 
 
-1st Prize – 15–inch  MacBook Pro with Retina display
-
-2nd Prize – 32GB iPad with Retina display
-
-3rd Prize – 16GB iPad mini
-
-Details on the target environment
-=================================
-
-We will run the submissions in the following environment:
-
-- JDK 7
-- Processors: 4 CPU cores
-- Memory: -Xms1G -Xmx1G
-
-Judging Criteria
-=================================
-
-Submissions will be reviewed by our team and scored based on the following criteria:
-
-- Readability
-- Efficiency (bonus points for parallel processing)
-- Creativity
-
-Getting your dream job
-======================
-
-Kijiji is constantly recruiting talented developers in Toronto.
-
-If you think that a fast paced, fun, quirky company with a startup culture would be a good fit for you, seize the
-opportunity when you have the attention of the developers, and attach your resume to your email submission. This is not
-mandatory, and will have no effect on the contest results – but could have a very dramatic one on your career. Kijiji
-is a top 10 website in Canada, and a property of eBay, Inc., so the sky is the limit on advancement opportunities for
-those with talent and drive.
+This seem to be the ultimate optimization for this solution as it cuts down the (back then, already multithreaded and otherwise optimized) processing time by more than half.
 
 
-                                 .ZZZZZZZZZZZZZZZ.
-                              .ZZZZZZZZZZZZZZZZZZZZZ.
-                            ,ZZZZZZZZZZZ. .ZZZZZZZZZZZ,
-                          .ZZZZZZZZ             ZZZZZZZZ
-                         ,ZZZZZZ                   ZZZZZZ,
-                        ZZZZZZ                      .ZZZZZZ
-                       .ZZZZZ     NNNNNNNNNNNNNNN  ZZZZZZZZ.
-                       ZZZZZ      NNNNNNNNNNNNNNNZZZZZZZZZZZ
-                      ZZZZZ.      NNNNNN    NNZZZZZZZZZ.ZZZZ$
-                      ZZZZZ       NNNNNN   .ZZZZZZZZ.   ZZZZZ
-                      ZZZZ        NNNNNN ZZZZZZZZZN     .ZZZZ.
-                      ZZZZ        NNNNNZZZZZZZZNNNN      ZZZZ.
-                      ZZZZ        NNZZZZZZZZZNNNN        ZZZZ.
-                      ZZZZ       .ZZZZZZZZNNNN           ZZZZ.
-                      ZZZZZ    ZZZZZZZZN                ZZZZZ
-                      ZZZZZ.,ZZZZZZZZNNN                ZZZZZ
-                       ZZZZZZZZZZZNNNNNN               ZZZZZ.
-                       .ZZZZZZZ$  NNNNNN              ZZZZZ.
-                        $ZZZZZ.                     .ZZZZZZ
-                         ,ZZZZZZ.                  ZZZZZZ,
-                           ZZZZZZZ$             ZZZZZZZZ
-                            :ZZZZZZZZZZZ. .ZZZZZZZZZZZ:
-                              .ZZZZZZZZZZZZZZZZZZZZZ.
-                                 .ZZZZZZZZZZZZZZZ.
-                                      ...+...
 
-
+Another optimization is in the address parsing. Since accuracy is not very important, all this solution does is strip of non-alphabetic tokens at the beginning and filtered suffixes at the end. The beginning of a MutableString can be easily read char by char to determine if a word is fully alphabetic. The tokens after can be checked against a HashSet to determine if they should be filtered.
