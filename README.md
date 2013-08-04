@@ -1,10 +1,3 @@
-UPDATE: August 2nd, 2013
-========================
-
-The coding contest is now closed. We received a total of 119 submissions (109 Java, 8 Scala, 1 JRuby, 1 Xtend). Thanks everyone for your participation and enthusiasm.
-You can read our explanation around the SortedMap problem at [http://kijijiblog.ca/coding-contest-closed](http://kijijiblog.ca/coding-contest-closed)
-
-
 So you think you can code, eh?
 ==============================
 
@@ -29,11 +22,11 @@ You can add any library you want to the pom.xml but don't modify the test class.
 Prize
 =====
 
-1st Prize – 15–inch  MacBook Pro with Retina display
+1st Prize – 15–inch  MacBook Pro with Retina display (value $2,199.00)
 
-2nd Prize – 32GB iPad with Retina display
+2nd Prize – 32GB iPad with Retina display (value $599)
 
-3rd Prize – 16GB iPad mini
+3rd Prize – 16GB iPad mini (value $329)
 
 Details on the target environment
 =================================

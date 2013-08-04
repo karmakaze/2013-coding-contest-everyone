@@ -18,6 +18,7 @@ public class ParkingTicketsStatsTest {
     // Download the file from the following URL and extract into src/test/resources
     // http://www1.toronto.ca/City_Of_Toronto/Information_&_Technology/Open_Data/Data_Sets/Assets/Files/parking_tickets_data_2012.zip
     private static final String PARKING_TAGS_DATA_2012_CSV_PATH = "/Parking_Tags_Data_2012.csv";
+    private static final int MIN_AMOUNT_THRESHOLD = 1000;
 
     @Test
     public void testSortStreetsByProfitability() throws Exception {
@@ -43,6 +44,7 @@ public class ParkingTicketsStatsTest {
         //
         // NOTE: the street name should be extracted from the field location2 only.
 
+        System.out.println("SIZE: "+streets.keySet().size());
         assertThat(streets.get("KING"), closeTo(2570710));
         assertThat(streets.get("ST CLAIR"), closeTo(1871510));
         assertThat(streets.get(streets.firstKey()), closeTo(3781095));
