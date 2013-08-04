@@ -22,14 +22,13 @@ import jsr166e.LongAdder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.ComparisonChain;
+
 /**
  * A multi-threaded calculator that generates a sorted (revenue descending) map of parking ticket revenue by street.
  * This implementation uses an in-memory store to retain statistics. Obviously, this technique will only work when there
  * is a finite number of unique keys. In the case of an arbitrarily large number of keys, a more efficient storage
  * mechanism (likely diskbound) should be considered.
- * <p>
- * Be aware that the resultant map is ordered by value and <b>not</b> by key, which violates the contract established
- * by SortedSet.
  */
 @ThreadSafe
 public final class RevenueCalculator
@@ -113,6 +112,7 @@ public final class RevenueCalculator
         for (final Map.Entry<String, LongAdder> e : tickets.entrySet()) {
             sorted.put(e.getKey(), e.getValue().intValue());
         }
+
         this.calculated = sorted;
         return sorted;
     }
@@ -152,7 +152,10 @@ public final class RevenueCalculator
                 return 1;
             }
             final LongAdder revenue2 = tickets.get(o2);
-            return revenue2.intValue() - revenue1.intValue();
+            return ComparisonChain.start()
+                .compare(revenue2.intValue(), revenue1.intValue())
+                .compare(o2, o1)
+                .result();
         }
     }
 }
