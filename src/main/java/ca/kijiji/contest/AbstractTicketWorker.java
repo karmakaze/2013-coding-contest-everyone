@@ -1,14 +1,14 @@
 package ca.kijiji.contest;
 
-import org.apache.commons.lang.StringUtils;
-import org.slf4j.*;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.*;
 
 /**
  * Base class for Asynchronous ticket processors
@@ -21,25 +21,27 @@ abstract class AbstractTicketWorker extends Thread {
 
     private List<String> _mCSVCols = new ArrayList<>();
 
-    // Message that marks the end of processing. Use something that won't show up in any other valid
-    // message in case String.intern is called on message sent (we use identity comparison.)
-    public static final String END_MSG = "\n\n\n";
+    // Message that marks the end of processing.
+    public static final CharRange END_MSG = new CharRange(-1, -1);
 
     // decrement this when we leave run(), means no running worker threads when at 0
     private final CountDownLatch _mRunningCounter;
 
     // How the main thread communicates with us
-    private final LinkedBlockingQueue<String> _mMessageQueue;
+    private final LinkedBlockingQueue<CharRange> _mMessageQueue;
 
     // Number of errors we've come across during our work
     protected final AtomicInteger mErrCounter;
 
+    // Buffer to read chunks from
+    protected char[] mBuffer;
 
 
-    protected AbstractTicketWorker(CountDownLatch runCounter, AtomicInteger errCounter, LinkedBlockingQueue<String> queue) {
+    protected AbstractTicketWorker(CountDownLatch runCounter, AtomicInteger errCounter, LinkedBlockingQueue<CharRange> queue,
+                                   char[] buffer) {
         _mRunningCounter = runCounter;
         _mMessageQueue = queue;
-
+        mBuffer = buffer;
         mErrCounter = errCounter;
     }
 
@@ -68,7 +70,7 @@ abstract class AbstractTicketWorker extends Thread {
             try {
 
                 // Block until we have a new message.
-                String message;
+                CharRange message;
                 while((message =  _mMessageQueue.poll()) == null) {
                     Thread.yield();
                 }
@@ -79,32 +81,37 @@ abstract class AbstractTicketWorker extends Thread {
                     break;
                 }
 
-                // Split the ticket into columns, this isn't CSV compliant and will
-                // fail on columns with escaped values. There's less than 100 of those
-                // in the test data, so do it the quick way unless something goes wrong.
-                // This takes us from 11000ms down to around 3900ms.
-                String[] ticketCols = StringUtils.splitPreserveAllTokens(message, ',');
 
-                // Is this line properly formed? (This check will fail on valid CSVs
-                // with variable column numbers and embedded commas)
-                if(ticketCols.length != _mNumCSVCols) {
+                // Process the chunk the producer gave us into separate rows
+                String strMessage = message.slice(mBuffer);
+                for(String ticketRow : StringUtils.split(strMessage, '\n')) {
 
-                    // Process the CSV line *properly*
-                    ticketCols = CSVUtils.parseCSVLine(message);
+                    // Split the ticket into columns, this isn't CSV compliant and will
+                    // fail on columns with escaped values. There's less than 100 of those
+                    // in the test data, so do it the quick way unless something goes wrong.
+                    String[] ticketCols = StringUtils.splitPreserveAllTokens(ticketRow, ',');
 
-                    // Do we have the correct number of columns now?
+                    // Is this line properly formed? (This check will fail on valid CSVs
+                    // with variable column numbers and embedded commas)
                     if(ticketCols.length != _mNumCSVCols) {
 
-                        // Guess not, print an error and skip to the next line
-                        String msg = String.format("Expected %d columns, got %d (invalid tickets file?):\n%s",
-                                _mNumCSVCols, ticketCols.length, message);
-                        LOG.warn(msg);
-                        continue;
-                    }
-                }
+                        // Process the CSV line *properly*
+                        ticketCols = CSVUtils.parseCSVLine(ticketRow);
 
-                // Implementation-defined method of processing the columns
-                processTicketCols(ticketCols);
+                        // Do we have the correct number of columns now?
+                        if(ticketCols.length != _mNumCSVCols) {
+
+                            // Guess not, print an error and skip to the next line
+                            String msg = String.format("Expected %d columns, got %d (invalid tickets file?):\n%s",
+                                    _mNumCSVCols, ticketCols.length, ticketRow);
+                            LOG.warn(msg);
+                            continue;
+                        }
+                    }
+
+                    // Implementation-defined method of processing the columns
+                    processTicketCols(ticketCols);
+                }
 
             } catch (InterruptedException e) {
                 return;

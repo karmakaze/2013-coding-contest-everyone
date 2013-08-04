@@ -17,9 +17,9 @@ class StreetProfitTabulator extends AbstractTicketWorker {
     // Normalized name cache, makes it complete around 30% faster on my PC.
     private final StreetNameResolver _mStreetNameResolver;
 
-    public StreetProfitTabulator(CountDownLatch runCounter, LinkedBlockingQueue<String> queue, AtomicInteger errCounter,
-                                 StreetProfitMap statsMap, StreetNameResolver nameCacheMap) {
-        super(runCounter, errCounter, queue);
+    public StreetProfitTabulator(CountDownLatch runCounter, LinkedBlockingQueue<CharRange> queue, AtomicInteger errCounter,
+                                 char[] buffer, StreetProfitMap statsMap, StreetNameResolver nameCacheMap) {
+        super(runCounter, errCounter, queue, buffer);
         _mStreetStats = statsMap;
 
         _mStreetNameResolver = nameCacheMap;
