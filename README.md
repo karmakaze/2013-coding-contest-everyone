@@ -1,94 +1,26 @@
-UPDATE: August 2nd, 2013
-========================
+Here is my solution.
 
-The coding contest is now closed. We received a total of 119 submissions (109 Java, 8 Scala, 1 JRuby, 1 Xtend). Thanks everyone for your participation and enthusiasm.
-You can read our explanation around the SortedMap problem at [http://kijijiblog.ca/coding-contest-closed](http://kijijiblog.ca/coding-contest-closed)
+Overview
+--------
 
+The input stream is processed using one reader thread and several processor threads.
 
-So you think you can code, eh?
-==============================
+The reader thread reads strings from the input stream, then puts packets of data to the working queue. Using packets of data (1000 strings) helps to avoid excessive working queue locking. When the end of the stream is reached, end markers are added to the queue.
 
-The [Kijiji](http://www.kijiji.ca) Development Team has a great challenge for you.
+Processor threads take data packets from the working queue. The data goes to the actual parser associated with each processor thread. The processor thread stops when it reads an end marker from the working queue.
 
-Armed with your JVM language of choice, your mission is to find out the most profitable streets of Toronto in terms of
-parking tickets (profitable for the city that is).
-
-On its open data portal, the City of Toronto published the complete list of
-[Parking tickets distributed in 2012](http://www1.toronto.ca/wps/portal/contentonly?vgnextoid=ca20256c54ea4310VgnVCM1000003dd60f89RCRD)
-
-Take a look at their explanation spreadsheet to understand the format of their data.
-
-- Check-out this project
-- Download the 2012 data and extract it into src/test/resources
-- Make the test case pass
-- Run 'mvn package' to create an archive target/kijiji-coding-contest.tar containing your pom.xml and src/main
-- Send this archive by e-mail to coding-contest@kijiji.ca before July 31st, 2013 at 11:59pm
-
-You can add any library you want to the pom.xml but don't modify the test class.
-
-Prize
-=====
-
-1st Prize – 15–inch  MacBook Pro with Retina display
-
-2nd Prize – 32GB iPad with Retina display
-
-3rd Prize – 16GB iPad mini
-
-Details on the target environment
-=================================
-
-We will run the submissions in the following environment:
-
-- JDK 7
-- Processors: 4 CPU cores
-- Memory: -Xms1G -Xmx1G
-
-Judging Criteria
-=================================
-
-Submissions will be reviewed by our team and scored based on the following criteria:
-
-- Readability
-- Efficiency (bonus points for parallel processing)
-- Creativity
-
-Getting your dream job
-======================
-
-Kijiji is constantly recruiting talented developers in Toronto.
-
-If you think that a fast paced, fun, quirky company with a startup culture would be a good fit for you, seize the
-opportunity when you have the attention of the developers, and attach your resume to your email submission. This is not
-mandatory, and will have no effect on the contest results – but could have a very dramatic one on your career. Kijiji
-is a top 10 website in Canada, and a property of eBay, Inc., so the sky is the limit on advancement opportunities for
-those with talent and drive.
+Each processor creates its own street->profit map; which helps to avoid locks on profit maps. In the end, the data is merged (similar to MapReduce), and the SortedMap view is returned.
 
 
-                                 .ZZZZZZZZZZZZZZZ.
-                              .ZZZZZZZZZZZZZZZZZZZZZ.
-                            ,ZZZZZZZZZZZ. .ZZZZZZZZZZZ,
-                          .ZZZZZZZZ             ZZZZZZZZ
-                         ,ZZZZZZ                   ZZZZZZ,
-                        ZZZZZZ                      .ZZZZZZ
-                       .ZZZZZ     NNNNNNNNNNNNNNN  ZZZZZZZZ.
-                       ZZZZZ      NNNNNNNNNNNNNNNZZZZZZZZZZZ
-                      ZZZZZ.      NNNNNN    NNZZZZZZZZZ.ZZZZ$
-                      ZZZZZ       NNNNNN   .ZZZZZZZZ.   ZZZZZ
-                      ZZZZ        NNNNNN ZZZZZZZZZN     .ZZZZ.
-                      ZZZZ        NNNNNZZZZZZZZNNNN      ZZZZ.
-                      ZZZZ        NNZZZZZZZZZNNNN        ZZZZ.
-                      ZZZZ       .ZZZZZZZZNNNN           ZZZZ.
-                      ZZZZZ    ZZZZZZZZN                ZZZZZ
-                      ZZZZZ.,ZZZZZZZZNNN                ZZZZZ
-                       ZZZZZZZZZZZNNNNNN               ZZZZZ.
-                       .ZZZZZZZ$  NNNNNN              ZZZZZ.
-                        $ZZZZZ.                     .ZZZZZZ
-                         ,ZZZZZZ.                  ZZZZZZ,
-                           ZZZZZZZ$             ZZZZZZZZ
-                            :ZZZZZZZZZZZ. .ZZZZZZZZZZZ:
-                              .ZZZZZZZZZZZZZZZZZZZZZ.
-                                 .ZZZZZZZZZZZZZZZ.
-                                      ...+...
+Ticket processing
+-----------------
 
+Parsing CSV line: for most of the records, String.split() worked fine; but some records contain fields with comma inside (such fields are wrapped with quotes). This makes line parser more complicated.
 
+Getting street names:
+- location2 is split into tokens (words);
+- direction and street type tokens are removed from the end;
+- starting from the end of the remaining tokens list, the sequence of words ("KING", "ST", "CLAIRE", "D'ARCY"), and number-like names ("12TH", "43RD", but not "1A", "1a") is combined into street name.
+- the remaining part of the location string rest is considered as number(s)/range, and ignored.
+
+The String.split() calls and regexps are slow; so there is a room for optimization. I had no time to optimize it though; and also tried to focus on getting different street names right (=avoid premature optimization). Then, decided to submit the "readable" solution as is.

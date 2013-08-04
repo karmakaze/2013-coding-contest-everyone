@@ -23,8 +23,9 @@ public class ParkingTicketsStats {
     /*
      * The stream is processed using one reader thread and several processor threads.
      *
-     * The reader thread reads strings from the input stream, then puts packets of data to the working queue. Waits if
-     * there is no room in the queue. When the end of the stream is reached, end markers are added to the queue (one
+     * The reader thread reads strings from the input stream, then puts packets of data to the working queue. Using
+     * packets of data helps to avoid excessive working queue locking. The reader thread blocks if there is
+     * no room in the working queue. When the end of the stream is reached, end markers are added to the queue (one
      * marker for each working thread).
      *
      * Processor threads take data packets from the queue; waiting if no data is available. The data goes to the
