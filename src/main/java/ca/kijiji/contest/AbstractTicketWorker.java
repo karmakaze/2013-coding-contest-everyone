@@ -7,7 +7,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.commons.lang.StringUtils;
 import org.slf4j.*;
 
 /**
@@ -93,12 +92,7 @@ abstract class AbstractTicketWorker extends Thread {
 
                         // Process the CSV line *properly*
                         for(String col : CSVUtils.parseCSVLine(ticketRow.toString())) {
-                            try {
-                                ticketCols.add(new CharRange(col));
-                            } catch (NullPointerException e) {
-                                System.out.println(ticketRow);
-                                throw e;
-                            }
+                            ticketCols.add(new CharRange(col));
                         }
 
                         // Do we have the correct number of columns now?

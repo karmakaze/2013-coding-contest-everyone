@@ -6,83 +6,85 @@ import java.util.List;
 /**
  * Represents a mutable view of a character buffer, supports string-like operations
  */
-public class CharRange {
-    public char[] buffer;
-    public int start;
-    public int end;
+public class CharRange implements CharSequence {
+    private char[] _buffer;
+    private int _start;
+    private int _end;
 
     public CharRange(char[] buffer, int start, int end) {
-        this.start = start;
-        this.end = end;
-        this.buffer = buffer;
+        this._start = start;
+        this._end = end;
+        this._buffer = buffer;
     }
 
     public CharRange(String str) {
-        this.start = 0;
-
-        //bad hacky workaround to remove later.
-        if(str != null) {
-            this.buffer = str.toCharArray();
-            this.end = this.buffer.length;
-        } else {
-            this.buffer = null;
-            this.end = 0;
-        }
+        this._start = 0;
+        this._buffer = str.toCharArray();
+        this._end = this._buffer.length;
     }
 
-    public CharRange() {}
-
-    public void trim() {
-
-        // Trim the head
-        int i;
-        for(i = this.start; i < this.end; ++i) {
-            if(this.buffer[i] != ' ') {
-                break;
-            }
-        }
-
-        this.start = i;
-
-        // Trim the tail
-        for(i = this.end - 1; i >= this.start; --i) {
-            if(this.buffer[i] != ' ') {
-                break;
-            }
-        }
-
-        this.end = i + 1;
+    public CharRange() {
+        this._start = 0;
+        this._end = 0;
     }
 
+    public int length() {
+        return this._end - this._start;
+    }
+
+    public boolean isEmpty() {
+        return length() == 0;
+    }
+
+    /**
+     * Get the character at the specified index
+     */
     public char charAt(int i) {
-        return buffer[start + i];
+        return this._buffer[this._start + i];
     }
 
+    /**
+     * Get the index of the first instance of a character, or -1 if none found.
+     */
     public int indexOf(char c) {
-        for(int i = this.start; i < this.end; ++i) {
-            if(buffer[i] == c) {
-                return i - this.start;
+        for(int i = this._start; i < this._end; ++i) {
+            if(this._buffer[i] == c) {
+                return i - this._start;
             }
         }
 
         return -1;
     }
 
-    public boolean isEmpty() {
-        return this.end <= this.start;
+    public CharSequence subSequence(int start, int end) {
+        assert(end >= 0 && end <= length());
+        assert(start >= 0 && start < length());
+
+        return new CharRange(_buffer, this._start + start, this._start + end);
     }
 
-    public void splitInto(List<CharRange> list, char sep, boolean preserveNull) {
+    public void substr(int start) {
+        this._start += start;
+    }
+
+    /**
+     * Split the CharRange into the specified list
+     * @param list list to split into
+     * @param sep character that separates entries
+     * @param keepEmpty whether or not to keep empty entries
+     */
+    public void splitInto(List<CharRange> list, char sep, boolean keepEmpty) {
+        //Based on splitWorker from Apache Commons
 
         int i;
-        int start = i = this.start;
+        int start = i = this._start;
 
         boolean match = false;
         boolean lastMatch = false;
-        while (i < this.end) {
-            if (buffer[i] == sep) {
-                if (match || preserveNull) {
-                    list.add(new CharRange(buffer, start, i));
+        while (i < this._end) {
+            if (this._buffer[i] == sep) {
+                if (match || keepEmpty) {
+                    list.add(new CharRange(this._buffer, start, i));
                     match = false;
                     lastMatch = true;
                 }
@@ -94,14 +96,19 @@ public class CharRange {
             i++;
         }
 
-        if (match || preserveNull && lastMatch) {
-            list.add(new CharRange(buffer, start, i));
+        if (match || keepEmpty && lastMatch) {
+            list.add(new CharRange(this._buffer, start, i));
         }
     }
 
-    public List<CharRange> split(char sep, boolean preserveNull) {
+    /**
+     * Split the CharRange into a list of entries
+     * @param sep character that separates entries
+     * @param keepEmpty whether or not to keep empty entries
+     */
+    public List<CharRange> split(char sep, boolean keepEmpty) {
         List<CharRange> list = new LinkedList<>();
-        splitInto(list, sep, preserveNull);
+        splitInto(list, sep, keepEmpty);
         return list;
     }
 
@@ -112,8 +119,8 @@ public class CharRange {
      */
     public int toInteger() {
         int val = 0;
-        for(int i = this.start; i < this.end; ++i) {
-            int digit = Character.digit(buffer[i], 10);
+        for(int i = this._start; i < this._end; ++i) {
+            int digit = Character.digit(_buffer[i], 10);
 
             if(digit == -1) {
                 break;
@@ -126,10 +133,35 @@ public class CharRange {
     }
 
     /**
+     * Remove spaces from the beginning and end of the CharSequence
+     */
+    public void trim() {
+
+        // Trim the head
+        int i;
+        for(i = this._start; i < this._end; ++i) {
+            if(this._buffer[i] != ' ') {
+                break;
+            }
+        }
+
+        this._start = i;
+
+        // Trim the tail
+        for(i = this._end - 1; i >= this._start; --i) {
+            if(this._buffer[i] != ' ') {
+                break;
+            }
+        }
+
+        this._end = i + 1;
+    }
+
+    /**
      * Apply this range to a character buffer and get the resulting string
      */
     @Override
     public String toString() {
-        return new String(buffer, start, end - start);
+        return new String(_buffer, _start, _end - _start);
     }
 }

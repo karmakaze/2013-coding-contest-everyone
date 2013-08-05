@@ -30,6 +30,12 @@ final class CSVUtils {
             // We can't have an IOException because there's no IO happening in a StringReader
         }
 
+        for(int i = 0; i < csvCols.length; ++i) {
+            if(csvCols[i] == null) {
+                csvCols[i] = "";
+            }
+        }
+
         return csvCols;
     }
 }
