@@ -97,7 +97,7 @@ class StreetNameResolver {
      * @param address the trim()ed address to parse a street name from (ex: "123 FAKE ST W")
      * @return a street name (ex: "FAKE") or null if a street name couldn't be parsed out
      */
-    public String addressToStreetName(String address) {
+    public String addressToStreetName(CharRange address) {
 
         // Try to remove the street number from the front so we're more likely to get a cache hit
         String streetCacheKey = _getAddressCacheKey(address);
@@ -109,7 +109,7 @@ class StreetNameResolver {
         if(streetName == null) {
 
             // Split the address into street number and street components
-            Matcher addressMatcher = ADDRESS_REGEX.matcher(address);
+            Matcher addressMatcher = ADDRESS_REGEX.matcher(streetCacheKey);
 
             // Yep, this looks like an address
             if(addressMatcher.matches()) {
@@ -171,7 +171,7 @@ class StreetNameResolver {
      * @param address a trim()ed street address
      * @return a suitable cache key for this address.
      */
-    private static String _getAddressCacheKey(String address) {
+    private static String _getAddressCacheKey(CharRange address) {
 
         // charAt() doesn't work right with surrogate pairs,
         // but there aren't any hieroglyphics in the input, so...
@@ -190,13 +190,13 @@ class StreetNameResolver {
                 // number or lowercase letter is *always* a street number
                 if(Character.isDigit(lastChar) || Character.isLowerCase(lastChar)) {
                     // Return all of the tokens after (what I hope is) the street number
-                    return address.substring(space_idx + 1);
+                    address.start += space_idx + 1;
                 }
             }
         }
 
         // This is probably a street name, return as-is
-        return address;
+        return address.toString();
     }
 
     /**

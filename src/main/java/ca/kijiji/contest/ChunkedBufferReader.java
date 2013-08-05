@@ -64,7 +64,7 @@ public class ChunkedBufferReader {
         int start = _position;
         _readLine();
 
-        return new CharRange(_buffer, start, _position).slice();
+        return new CharRange(_buffer, start, _position).toString();
     }
 
     /**

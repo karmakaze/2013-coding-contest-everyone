@@ -22,7 +22,7 @@ abstract class AbstractTicketWorker extends Thread {
     private List<String> _mCSVCols = new ArrayList<>();
 
     // Message that marks the end of processing.
-    public static final CharRange END_MSG = new CharRange("");
+    public static final CharRange END_MSG = new CharRange();
 
     // decrement this when we leave run(), means no running worker threads when at 0
     private final CountDownLatch _mRunningCounter;
@@ -50,8 +50,8 @@ abstract class AbstractTicketWorker extends Thread {
     /**
      * Given an array representing the columns of a row, return the column associated with colName
      */
-    protected String getColumn(String[] cols, String colName) {
-        return cols[_mCSVCols.indexOf(colName)];
+    protected CharRange getColumn(List<CharRange> cols, String colName) {
+        return cols.get(_mCSVCols.indexOf(colName));
     }
 
     public void run () {
@@ -77,27 +77,36 @@ abstract class AbstractTicketWorker extends Thread {
 
 
                 // Process the chunk the producer gave us into separate rows
-                String strMessage = message.slice();
-                for(String ticketRow : StringUtils.split(strMessage, '\n')) {
+                for(CharRange ticketRow : message.split('\n', false)) {
 
                     // Split the ticket into columns, this isn't CSV compliant and will
                     // fail on columns with escaped values. There's less than 100 of those
                     // in the test data, so do it the quick way unless something goes wrong.
-                    String[] ticketCols = StringUtils.splitPreserveAllTokens(ticketRow, ',');
+                    List<CharRange> ticketCols = new ArrayList<>(_mNumCSVCols);
+                    ticketRow.splitInto(ticketCols, ',', true);
 
                     // Is this line properly formed? (This check will fail on valid CSVs
                     // with variable column numbers and embedded commas)
-                    if(ticketCols.length != _mNumCSVCols) {
+                    if(ticketCols.size() != _mNumCSVCols) {
+
+                        ticketCols.clear();
 
                         // Process the CSV line *properly*
-                        ticketCols = CSVUtils.parseCSVLine(ticketRow);
+                        for(String col : CSVUtils.parseCSVLine(ticketRow.toString())) {
+                            try {
+                                ticketCols.add(new CharRange(col));
+                            } catch (NullPointerException e) {
+                                System.out.println(ticketRow);
+                                throw e;
+                            }
+                        }
 
                         // Do we have the correct number of columns now?
-                        if(ticketCols.length != _mNumCSVCols) {
+                        if(ticketCols.size() != _mNumCSVCols) {
 
                             // Guess not, print an error and skip to the next line
                             String msg = String.format("Expected %d columns, got %d (invalid tickets file?):\n%s",
-                                    _mNumCSVCols, ticketCols.length, ticketRow);
+                                    _mNumCSVCols, ticketCols.size(), ticketRow.toString());
                             LOG.warn(msg);
                             continue;
                         }
@@ -118,5 +127,5 @@ abstract class AbstractTicketWorker extends Thread {
      * Do something with the split up columns from a line in the CSV
      * @param ticketCols columns from the CSV
      */
-    abstract protected void processTicketCols(String[] ticketCols);
+    abstract protected void processTicketCols(List<CharRange> ticketCols);
 }

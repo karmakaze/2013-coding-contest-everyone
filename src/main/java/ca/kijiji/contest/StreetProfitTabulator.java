@@ -1,5 +1,6 @@
 package ca.kijiji.contest;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -29,9 +30,10 @@ class StreetProfitTabulator extends AbstractTicketWorker {
      * Add the fine from this ticket to <code>_mStreetStats</code> if it references a valid street
      * @param ticketCols columns from the CSV
      */
-    protected void processTicketCols(String[] ticketCols) {
+    protected void processTicketCols(List<CharRange> ticketCols) {
         // Get the column containing the address of the infraction
-        String address = getColumn(ticketCols, "location2").trim();
+        CharRange address = getColumn(ticketCols, "location2");
+        address.trim();
 
         // We can't do anything if there's no address, fetch the next ticket
         if(address.isEmpty()) {
@@ -44,8 +46,8 @@ class StreetProfitTabulator extends AbstractTicketWorker {
         // We were able to parse a street name out of the address
         if(streetName != null) {
             // Figure out how much the fine for this infraction was
-            String fineField = getColumn(ticketCols, "set_fine_amount");
-            Integer fine = Ints.tryParse(fineField);
+            CharRange fineField = getColumn(ticketCols, "set_fine_amount");
+            Integer fine = fineField.toInteger();
 
             if(fine != null) {
                 _mStreetStats.addFineTo(streetName, fine);

@@ -6,6 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 
@@ -48,6 +50,20 @@ public class ParkingTicketsStatsTest {
         assertThat(streets.get("ST CLAIR"), closeTo(1871510));
         assertThat(streets.get(streets.firstKey()), closeTo(3781095));
 
+    }
+
+    @Test
+    public void testStupidStrings() {
+        CharRange range = new CharRange("***29000,20121221,9,STOP HWY PROHIBITED TIME/DAY,60,1256,W/S,140 BAY ST,N/O,QUEEN ST W,ON");
+        List<CharRange> list = new ArrayList<>(11);
+        range.splitInto(list, ',', true);
+
+        StreetNameResolver res = new StreetNameResolver();
+
+        range = list.get(7);
+        range.trim();
+
+        assertThat("Ticket parsing works", res.addressToStreetName(range).equals("BAY"));
     }
 
     private Matcher<Integer> closeTo(int num) {
