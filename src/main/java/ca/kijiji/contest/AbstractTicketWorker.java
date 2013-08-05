@@ -22,7 +22,7 @@ abstract class AbstractTicketWorker extends Thread {
     private List<String> _mCSVCols = new ArrayList<>();
 
     // Message that marks the end of processing.
-    public static final CharRange END_MSG = new CharRange(-1, -1);
+    public static final CharRange END_MSG = new CharRange("");
 
     // decrement this when we leave run(), means no running worker threads when at 0
     private final CountDownLatch _mRunningCounter;
@@ -33,15 +33,9 @@ abstract class AbstractTicketWorker extends Thread {
     // Number of errors we've come across during our work
     protected final AtomicInteger mErrCounter;
 
-    // Buffer to read chunks from
-    protected char[] mBuffer;
-
-
-    protected AbstractTicketWorker(CountDownLatch runCounter, AtomicInteger errCounter, LinkedBlockingQueue<CharRange> queue,
-                                   char[] buffer) {
+    protected AbstractTicketWorker(CountDownLatch runCounter, AtomicInteger errCounter, LinkedBlockingQueue<CharRange> queue) {
         _mRunningCounter = runCounter;
         _mMessageQueue = queue;
-        mBuffer = buffer;
         mErrCounter = errCounter;
     }
 
@@ -83,7 +77,7 @@ abstract class AbstractTicketWorker extends Thread {
 
 
                 // Process the chunk the producer gave us into separate rows
-                String strMessage = message.slice(mBuffer);
+                String strMessage = message.slice();
                 for(String ticketRow : StringUtils.split(strMessage, '\n')) {
 
                     // Split the ticket into columns, this isn't CSV compliant and will

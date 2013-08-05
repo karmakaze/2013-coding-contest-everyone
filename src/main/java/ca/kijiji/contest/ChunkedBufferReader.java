@@ -11,10 +11,9 @@ import java.io.*;
  */
 public class ChunkedBufferReader {
 
-    // 73*900
     // Median line length is just over 73, this means we're not likely to spend much time looking
     // for the newline at the end of the chunk.
-    private final int CHUNK_SIZE = 65700;
+    private final int CHUNK_SIZE = 73 * 1000;
 
     // The buffer that the reader reads into
     private char[] _buffer;
@@ -32,13 +31,6 @@ public class ChunkedBufferReader {
 
         _reader =  new InputStreamReader(stream);
         _stream = stream;
-    }
-
-    /**
-     * @return the buffer backing the reader
-     */
-    public char[] getBuffer() {
-        return _buffer;
     }
 
 
@@ -60,7 +52,7 @@ public class ChunkedBufferReader {
         _readLine();
 
         // Return the range of the chunk
-        return new CharRange(start, _position);
+        return new CharRange(_buffer, start, _position);
     }
 
     /**
@@ -72,7 +64,7 @@ public class ChunkedBufferReader {
         int start = _position;
         _readLine();
 
-        return new CharRange(start, _position).slice(_buffer);
+        return new CharRange(_buffer, start, _position).slice();
     }
 
     /**

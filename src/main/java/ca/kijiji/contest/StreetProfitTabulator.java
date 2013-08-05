@@ -18,8 +18,8 @@ class StreetProfitTabulator extends AbstractTicketWorker {
     private final StreetNameResolver _mStreetNameResolver;
 
     public StreetProfitTabulator(CountDownLatch runCounter, LinkedBlockingQueue<CharRange> queue, AtomicInteger errCounter,
-                                 char[] buffer, StreetProfitMap statsMap, StreetNameResolver nameCacheMap) {
-        super(runCounter, errCounter, queue, buffer);
+                                 StreetProfitMap statsMap, StreetNameResolver nameCacheMap) {
+        super(runCounter, errCounter, queue);
         _mStreetStats = statsMap;
 
         _mStreetNameResolver = nameCacheMap;

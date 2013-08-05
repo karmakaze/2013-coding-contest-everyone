@@ -54,9 +54,6 @@ public class ParkingTicketsStats {
         // Create a reader that reads the file in chunks that the consumers may process further.
         ChunkedBufferReader parkingCsvReader = new ChunkedBufferReader(parkingTicketsStream);
 
-        // Get a reference to the array backing the reader to give to the consumers
-        char[] buffer = parkingCsvReader.getBuffer();
-
         // Parse out the column header
         String[] csvCols = CSVUtils.parseCSVLine(parkingCsvReader.readLine());
 
@@ -67,7 +64,7 @@ public class ParkingTicketsStats {
         // Set up the worker threads
         for(int i = 0; i < numWorkerThreads; ++i) {
             AbstractTicketWorker worker =
-                    new StreetProfitTabulator(countDownLatch, messageQueue, errCounter, buffer, stats, streetNameResolver);
+                    new StreetProfitTabulator(countDownLatch, messageQueue, errCounter, stats, streetNameResolver);
             worker.setColumns(csvCols);
             worker.start();
         }
