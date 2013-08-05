@@ -115,14 +115,18 @@ public class CharRange implements CharSequence {
     /**
      * Parses a non-negative integer out of the start of a CharRange
      * Assumes that the CharRange has been trimmed and cleaned beforehand
-     * @return
+     * @return the parsed number, or null if invalid
      */
-    public int toInteger() {
+    public Integer toInteger() {
         int val = 0;
         for(int i = this._start; i < this._end; ++i) {
             int digit = Character.digit(_buffer[i], 10);
 
             if(digit == -1) {
+                // No valid numbers in this string? return null.
+                if(i == this._start) {
+                    return null;
+                }
                 break;
             }
 

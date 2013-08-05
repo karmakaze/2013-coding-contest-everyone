@@ -53,7 +53,7 @@ class StreetProfitTabulator extends AbstractTicketWorker {
                 _mStreetStats.addFineTo(streetName, fine);
             } else {
                 // Welp, looks like there was something weird in the fine field.
-                LOG.warn(String.format("%s is not a value for the fine field", fineField));
+                LOG.warn(String.format("%s is not a valid value for the fine field", fineField));
                 mErrCounter.getAndIncrement();
             }
         } else {
