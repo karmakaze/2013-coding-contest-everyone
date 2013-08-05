@@ -233,11 +233,12 @@ class StreetNameResolver {
             // like a street designation, otherwise we'll mangle names like "HILL STREET" or "GREEN HILL CRESCENT".
             // According to Canada Post, streets only have one designation and there are no multi-word designations.
             // https://www.canadapost.ca/tools/pg/manual/PGaddress-e.asp#1423617
-            // Streets like "GROVE" with no designator will get mangled, but junk in junk out.
-            if(DESIGNATION_SET.contains(token)) {
+
+            // Don't mangle streets like "GROVE" with no designator.
+            if(DESIGNATION_SET.contains(token) && i != 0) {
                 // Designation token, stop reading.
                 break;
-            } else if(DIRECTION_SET.contains(token)) {
+            } else if(DIRECTION_SET.contains(token) && i != 0) {
                 // Direction token, keep going til we hit a designation or name token.
                 continue;
             } else {

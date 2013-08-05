@@ -54,7 +54,7 @@ public class ParkingTicketsStatsTest {
 
     @Test
     public void testStupidStrings() {
-        CharRange range = new CharRange("***29000,20121221,9,STOP HWY PROHIBITED TIME/DAY,60,1256,W/S,140 BAY ST,N/O,QUEEN ST W,ON");
+        CharRange range = new CharRange("***29000,20121221,9,STOP HWY PROHIBITED TIME/DAY,60,1256,W/S,BAY,N/O,QUEEN ST W,ON");
         List<CharRange> list = new ArrayList<>(11);
         range.splitInto(list, ',', true);
 

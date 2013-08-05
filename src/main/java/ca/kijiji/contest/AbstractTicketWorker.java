@@ -78,6 +78,7 @@ abstract class AbstractTicketWorker extends Thread {
                 // Process the chunk the producer gave us into separate rows
                 for(CharRange ticketRow : message.split('\n', false)) {
 
+
                     // Split the ticket into columns, this isn't CSV compliant and will
                     // fail on columns with escaped values. There's less than 100 of those
                     // in the test data, so do it the quick way unless something goes wrong.
@@ -100,7 +101,7 @@ abstract class AbstractTicketWorker extends Thread {
 
                             // Guess not, print an error and skip to the next line
                             String msg = String.format("Expected %d columns, got %d (invalid tickets file?):\n%s",
-                                    _mNumCSVCols, ticketCols.size(), ticketRow.toString());
+                                    _mNumCSVCols, ticketCols.size(), ticketRow);
                             LOG.warn(msg);
                             continue;
                         }
