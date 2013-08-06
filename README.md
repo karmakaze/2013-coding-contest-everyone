@@ -1,5 +1,5 @@
-This is Andrew Stevens attempt at the kijiji contest
-https://github.com/kijiji-ca/2013-coding-contest
+This is Andrew Stevens attempt at the kijiji contest  
+https://github.com/kijiji-ca/2013-coding-contest  
 The contest is closed, updates soon. http://kijijiblog.ca/coding-contest-closed
 
 I used Java, with the google guava library and some threads via java.util.concurrent
