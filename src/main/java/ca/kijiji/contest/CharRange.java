@@ -63,7 +63,7 @@ public class CharRange implements CharSequence {
         return new CharRange(_buffer, this._start + start, this._start + end);
     }
 
-    public void substr(int start) {
+    public void substring(int start) {
         this._start += start;
     }
 

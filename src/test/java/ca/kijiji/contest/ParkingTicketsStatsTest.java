@@ -63,7 +63,7 @@ public class ParkingTicketsStatsTest {
         range = list.get(7);
         range.trim();
 
-        assertThat("Ticket parsing works", res.addressToStreetName(range).equals("BAY"));
+        assertThat("Ticket parsing works", res.addressToStreetName(range.toString()).equals("BAY"));
     }
 
     private Matcher<Integer> closeTo(int num) {

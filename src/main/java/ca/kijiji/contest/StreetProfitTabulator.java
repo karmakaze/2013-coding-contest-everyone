@@ -41,7 +41,7 @@ class StreetProfitTabulator extends AbstractTicketWorker {
         }
 
         // Get just the street name without the street number(s)
-        String streetName = _mStreetNameResolver.addressToStreetName(address);
+        String streetName = _mStreetNameResolver.addressToStreetName(address.toString());
 
         // We were able to parse a street name out of the address
         if(streetName != null) {
