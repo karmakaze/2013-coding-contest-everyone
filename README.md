@@ -11,6 +11,12 @@ Here are some solutions I found neat:
     - http://andxyz.com
     - Use of Java, short and sweet, not too many optimizations and a few magic numbers.
 
+- lishd (Waterloo, Canada)
+    - http://www.lishid.com/
+    - https://github.com/lishd/2013-coding-contest/tree/master/src/main/java/com/lishid/kijiji/contest
+    - Use of Java, and Map-Reduce via threads
+    - My favorite Java solution thus far, fast, elegant, and well explained (read more https://github.com/lishd/2013-coding-contest)
+
 - devsoftweb (Man from montreal, impressing me with his Scala skill)
     - https://github.com/devsoftweb/2013-coding-contest/tree/master/src/main/scala/ca/kijiji/contest  
     - https://twitter.com/devsoftweb http://blog.devsoftweb.com/about
