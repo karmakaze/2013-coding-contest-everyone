@@ -18,6 +18,25 @@ As an optimization, MutableString is created to reduce the overhead of String cr
 
 This seem to be the ultimate optimization for this solution as it cuts down the (back then, already multithreaded and otherwise optimized) processing time by more than half.
 
-
-
 Another optimization is in the address parsing. Since accuracy is not very important, all this solution does is strip of non-alphabetic tokens at the beginning and filtered suffixes at the end. The beginning of a MutableString can be easily read char by char to determine if a word is fully alphabetic. The tokens after can be checked against a HashSet to determine if they should be filtered.
+
+Testing
+------
+
+My solution runs for about 500-550 ms (first run, using JUnit test) and 400ms (multi-run, usually 10, java hotspot-optimized)
+
+This is tested on a Intel i7-3520M (Dual-core with HT = 4 threads) at 2.9GHz, 8GB RAM but only 1G for Java.
+
+IO wise, the data file is stored on a 7200-RPM Momentus Thin HDD, and seems to take about 100ms to fully read the file without storing the data nor processing it.
+
+The "Map" phase takes about 300-350ms, which is the total of IO, running 4 threads to crunch the ~2.7million lines of data.
+
+The "Reduce" phase takes less than 100ms, which is mostly just merging the results from map.
+
+The final merging and sorting phase is done on the main thread, and takes about 50-100ms.
+
+Possible optimizations
+------
+
+An optimization would be to implement a custom SortedMap that can do a customized merge-sort. The plan is to sort the data on 4 threads, then merge them together into one on the main thread. Doing so will parallelize most of the final sorting phase, and the only unparallized work is the final merge phase.
+
