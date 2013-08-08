@@ -11,21 +11,33 @@ public class CharRange implements CharSequence {
     private int _start;
     private int _end;
 
+    static final char[] EMPTY_BUFFER = new char[]{};
+
+    /**
+     * Create a CharRange backed by an external
+     */
     public CharRange(char[] buffer, int start, int end) {
         this._start = start;
         this._end = end;
         this._buffer = buffer;
     }
 
+    /**
+     * Create a CharRange backed by a string's char array
+     */
     public CharRange(String str) {
         this._start = 0;
         this._buffer = str.toCharArray();
         this._end = this._buffer.length;
     }
 
+    /**
+     * An empty CharRange
+     */
     public CharRange() {
         this._start = 0;
         this._end = 0;
+        this._buffer = EMPTY_BUFFER;
     }
 
     public int length() {
@@ -56,15 +68,24 @@ public class CharRange implements CharSequence {
         return -1;
     }
 
+    /**
+     * Get a slice of the CharRange starting from start and ending at end
+     * @param start start relative to instance's this._start
+     * @param end end relative to instance's this._start
+     * @return
+     */
     public CharSequence subSequence(int start, int end) {
         assert(end >= 0 && end <= length());
         assert(start >= 0 && start < length());
 
-        return new CharRange(_buffer, this._start + start, this._start + end);
+        return new CharRange(this._buffer, this._start + start, this._start + end);
     }
 
-    public void substring(int start) {
-        this._start += start;
+    /**
+     * Slice a number of chars off the beginning of the CharRange
+     */
+    public void substring(int num) {
+        this._start += num;
     }
 
     /**
@@ -118,14 +139,14 @@ public class CharRange implements CharSequence {
      * @return the parsed number, or null if invalid
      */
     public Integer toInteger() {
-        int val = 0;
+        Integer val = 0;
         for(int i = this._start; i < this._end; ++i) {
             int digit = Character.digit(_buffer[i], 10);
 
             if(digit == -1) {
                 // No valid numbers in this string? return null.
                 if(i == this._start) {
-                    return null;
+                    val = null;
                 }
                 break;
             }

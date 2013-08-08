@@ -69,7 +69,7 @@ public class ParkingTicketsStats {
             worker.start();
         }
 
-        // Keep sending chunks to workers til we hit EOF. It's not valid to read CSVs this way
+        // Keep sending newline-separated chunks to workers til we hit EOF. It's not valid to read CSVs this way
         // according to the spec, but none of the columns contain escaped newlines and none should.
         CharRange parkingTicketChunk;
         while((parkingTicketChunk = parkingCsvReader.readChunkOfLines()) != null) {

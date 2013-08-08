@@ -21,7 +21,7 @@ public class ChunkedBufferReader {
     private final Reader _reader;
     private final InputStream _stream;
 
-    // Our current position in the buffer
+    // Where to place the next character in the buffer
     private int _position = 0;
 
     public ChunkedBufferReader(InputStream stream) throws IOException {
@@ -56,20 +56,24 @@ public class ChunkedBufferReader {
     }
 
     /**
-     * @return A single line from the stream, as a string.
+     * @return A single line from the stream, as a string, or null if the stream is empty.
      * @throws IOException
      */
     public String readLine() throws IOException {
 
+        if(_stream.available() <= 0)
+            return null;
+
         int start = _position;
         _readLine();
 
+        //return a range with tell()'s value at entry, and tell()'s current value
         return new CharRange(_buffer, start, _position).toString();
     }
 
     /**
      * Read in characters until the stream is empty or we hit a newline
-     * @return the current last filled position in the buffer
+     * @return the current buffer end
      * @throws IOException
      */
     private int _readLine() throws IOException {

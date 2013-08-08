@@ -30,6 +30,9 @@ final class CSVUtils {
             // We can't have an IOException because there's no IO happening in a StringReader
         }
 
+        // SuperCSV ever-so-helpfully  converts empty fields to nulls, when we want empty strings
+        // We can do this automatically with string processors *if* we know beforehand how many columns
+        // there will be. I don't want to hardcode that, so... we do it this way.
         for(int i = 0; i < csvCols.length; ++i) {
             if(csvCols[i] == null) {
                 csvCols[i] = "";
