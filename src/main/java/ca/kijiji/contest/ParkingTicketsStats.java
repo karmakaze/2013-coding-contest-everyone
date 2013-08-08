@@ -22,6 +22,9 @@ public class ParkingTicketsStats {
     // How many pending messages can be in the queue before insertions block
     private static final int MSG_QUEUE_SIZE = 4096;
 
+    // Normalized name cache, makes it complete around 30% faster on my PC.
+    private static final StreetNameResolver STREET_NAME_RESOLVER = new StreetNameResolver();
+
     /**
      * Tabulates the total value of the parking tickets issued per street with no fuzzing applied
      * @param parkingTicketsStream Stream containing the CSV with the tickets
@@ -32,8 +35,6 @@ public class ParkingTicketsStats {
     public static SortedMap<String, Integer> sortStreetsByProfitability(InputStream parkingTicketsStream)
             throws IOException, InterruptedException {
 
-        // Normalized name cache, makes it complete around 30% faster on my PC.
-        StreetNameResolver streetNameResolver = new StreetNameResolver();
         // Map of street name -> total profit
         StreetProfitMap stats = new StreetProfitMap();
 
@@ -64,7 +65,7 @@ public class ParkingTicketsStats {
         // Set up the worker threads
         for(int i = 0; i < numWorkerThreads; ++i) {
             AbstractTicketWorker worker =
-                    new StreetProfitTabulator(countDownLatch, messageQueue, errCounter, stats, streetNameResolver);
+                    new StreetProfitTabulator(countDownLatch, messageQueue, errCounter, stats, STREET_NAME_RESOLVER);
             worker.setColumns(csvCols);
             worker.start();
         }
@@ -87,8 +88,6 @@ public class ParkingTicketsStats {
         if(numErrs > 0) {
             LOG.warn(String.format("Encountered %d errors during processing", numErrs));
         }
-
-        LOG.info(String.format("%d cache hits for street name lookups", streetNameResolver.getCacheHits()));
 
         // Return an immutable map of the stats sorted by value
         return _finalizeStatsMap(stats);

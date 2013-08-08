@@ -82,13 +82,6 @@ public class CharRange implements CharSequence {
     }
 
     /**
-     * Slice a number of chars off the beginning of the CharRange
-     */
-    public void substring(int num) {
-        this._start += num;
-    }
-
-    /**
      * Split the CharRange into the specified list
      * @param list list to split into
      * @param sep character that separates entries
@@ -182,11 +175,15 @@ public class CharRange implements CharSequence {
         this._end = i + 1;
     }
 
+    public String toString(int start) {
+        return new String(this._buffer, start + this._start, this._end - this._start - start);
+    }
+
     /**
      * Apply this range to a character buffer and get the resulting string
      */
     @Override
     public String toString() {
-        return new String(_buffer, _start, _end - _start);
+        return new String(this._buffer, this._start, this._end - this._start);
     }
 }

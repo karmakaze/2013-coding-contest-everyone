@@ -41,7 +41,7 @@ class StreetProfitTabulator extends AbstractTicketWorker {
         }
 
         // Get just the street name without the street number(s)
-        String streetName = _mStreetNameResolver.addressToStreetName(address.toString());
+        String streetName = _mStreetNameResolver.addressToStreetName(address);
 
         // We were able to parse a street name out of the address
         if(streetName != null) {
@@ -63,7 +63,7 @@ class StreetProfitTabulator extends AbstractTicketWorker {
             mErrCounter.getAndIncrement();
 
             // I don't know what it is about log4j's appenders, but printing 50 of these
-            // adds 300+ ms of latency. Still, it's probably more important to let people
+            // adds a good amount of latency. Still, it's probably more important to let people
             // know that their data's all jacked up.
             LOG.warn(String.format("Couldn't parse address: %s", address));
         }
