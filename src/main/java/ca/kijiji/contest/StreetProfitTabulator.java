@@ -18,6 +18,10 @@ class StreetProfitTabulator extends AbstractTicketWorker {
     // Normalized name cache, makes it complete around 30% faster on my PC.
     private final StreetNameResolver _mStreetNameResolver;
 
+    // Cached indexes for interesting columns
+    private int _mFineIdx;
+    private int _mAddrIdx;
+
     public StreetProfitTabulator(CountDownLatch runCounter, LinkedBlockingQueue<CharRange> queue, AtomicInteger errCounter,
                                  StreetProfitMap statsMap, StreetNameResolver nameCacheMap) {
         super(runCounter, errCounter, queue);
@@ -27,12 +31,20 @@ class StreetProfitTabulator extends AbstractTicketWorker {
     }
 
     /**
+     * Cache column values (called when setColumns is called on AbstractTicketWorker)
+     */
+    protected void implSetColumns(List<String> columns) {
+        _mFineIdx = columns.indexOf("set_fine_amount");
+        _mAddrIdx = columns.indexOf("location2");
+    }
+
+    /**
      * Add the fine from this ticket to <code>_mStreetStats</code> if it references a valid street
      * @param ticketCols columns from the CSV
      */
     protected void processTicketCols(List<CharRange> ticketCols) {
         // Get the column containing the address of the infraction
-        CharRange address = getColumn(ticketCols, "location2");
+        CharRange address = ticketCols.get(_mAddrIdx);
         address.trim();
 
         // We can't do anything if there's no address, fetch the next ticket
@@ -46,7 +58,7 @@ class StreetProfitTabulator extends AbstractTicketWorker {
         // We were able to parse a street name out of the address
         if(streetName != null) {
             // Figure out how much the fine for this infraction was
-            CharRange fineField = getColumn(ticketCols, "set_fine_amount");
+            CharRange fineField = ticketCols.get(_mFineIdx);
             Integer fine = fineField.toInteger();
 
             if(fine != null) {

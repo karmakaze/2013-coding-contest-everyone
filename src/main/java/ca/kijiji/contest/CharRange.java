@@ -106,11 +106,12 @@ public class CharRange implements CharSequence {
             if (this._buffer[i] == sep) {
                 if (match || keepEmpty) {
 
-                    ++numMatches;
-                    if(numMatches > list.size())
+                    if(numMatches >= list.size())
                         list.add(new CharRange());
 
-                    list.get(numMatches - 1).set(this._buffer, start, i);
+                    list.get(numMatches).set(this._buffer, start, i);
+
+                    ++numMatches;
 
                     match = false;
                     lastMatch = true;
@@ -124,11 +125,12 @@ public class CharRange implements CharSequence {
         }
 
         if (match || keepEmpty && lastMatch) {
-            ++numMatches;
-            if(numMatches > list.size())
+            if(numMatches >= list.size())
                 list.add(new CharRange());
 
-            list.get(numMatches - 1).set(this._buffer, start, i);
+            list.get(numMatches).set(this._buffer, start, i);
+
+            ++numMatches;
         }
 
         // we can't use list size to detemine how many matches there were, return numMatches

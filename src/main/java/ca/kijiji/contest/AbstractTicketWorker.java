@@ -41,16 +41,14 @@ abstract class AbstractTicketWorker extends Thread {
     /**
      * Set the column indexes for the relevant fields given a parsed CSV header
      */
+    abstract protected void implSetColumns(List<String> cols);
+
     public void setColumns(String[] cols) {
         _mNumCSVCols = cols.length;
         _mCSVCols = Arrays.asList(cols);
-    }
 
-    /**
-     * Given an array representing the columns of a row, return the column associated with colName
-     */
-    protected CharRange getColumn(List<CharRange> cols, String colName) {
-        return cols.get(_mCSVCols.indexOf(colName));
+        // Let the implementation cache any indexes it cares about
+        implSetColumns(_mCSVCols);
     }
 
     public void run () {
