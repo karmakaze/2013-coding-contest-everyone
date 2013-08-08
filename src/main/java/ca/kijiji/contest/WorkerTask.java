@@ -44,6 +44,8 @@ public class WorkerTask implements Runnable {
     public void run() {
         LOG.info("Starting worker processing...");
         
+        boolean didWork = false;
+        
         while (true) {
             final String line = workQueue.poll();
             
@@ -54,6 +56,7 @@ public class WorkerTask implements Runnable {
             }
             
             if (StringUtils.isNotEmpty(line)) {
+                didWork = true;
                 final String[] fields = extractRelevantFields(line);
                 
                 if (StringUtils.isEmpty(fields[ADDRESS_INDEX])) {
@@ -61,6 +64,16 @@ public class WorkerTask implements Runnable {
                 }
 
                 storeFineData(fields);
+            } else {
+                didWork = false;
+            }
+            
+            if (!didWork) {
+                try {
+                    Thread.sleep(1);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
         }
     }
