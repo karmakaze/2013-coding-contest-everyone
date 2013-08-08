@@ -181,7 +181,7 @@ class StreetNameResolver {
                 // number or lowercase letter is *always* a street number
                 if(Character.isDigit(lastChar) || Character.isLowerCase(lastChar)) {
                     // Return all of the tokens after (what I hope is) the street number
-                    return address.toString(space_idx + 1);
+                    return address.strSlice(space_idx + 1);
                 }
             }
         }

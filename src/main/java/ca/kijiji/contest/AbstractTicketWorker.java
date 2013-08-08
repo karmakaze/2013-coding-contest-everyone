@@ -58,6 +58,10 @@ abstract class AbstractTicketWorker extends Thread {
         // Make sure we've called setColumns
         assert(_mNumCSVCols != 0);
 
+        // Keep these lists around so we can re-use CharRange instances when we use splitInto()
+        List<CharRange> ticketCols = new ArrayList<>(0);
+        List<CharRange> ticketRows = new ArrayList<>(0);
+
         // Start the infinite message loop, quit when we get an END message.
         for(;;) {
             try {
@@ -74,21 +78,22 @@ abstract class AbstractTicketWorker extends Thread {
                     break;
                 }
 
-
                 // Process the chunk the producer gave us into separate rows
-                for(CharRange ticketRow : message.split('\n', false)) {
+                int numRows = message.splitInto(ticketRows, '\n', false);
 
+                for(int i = 0; i < numRows; ++i) {
+                    CharRange ticketRow = ticketRows.get(i);
 
                     // Split the ticket into columns, this isn't CSV compliant and will
                     // fail on columns with escaped values. There's less than 100 of those
                     // in the test data, so do it the quick way unless something goes wrong.
-                    List<CharRange> ticketCols = new ArrayList<>(_mNumCSVCols);
-                    ticketRow.splitInto(ticketCols, ',', true);
+                    int numCols = ticketRow.splitInto(ticketCols, ',', true);
 
                     // Is this line properly formed? (This check will fail on valid CSVs
                     // with variable column numbers and embedded commas)
-                    if(ticketCols.size() != _mNumCSVCols) {
+                    if(numCols != _mNumCSVCols) {
 
+                        // List length now has to be meaningful, get rid of cached CharRange instances
                         ticketCols.clear();
 
                         // Process the CSV line *properly*

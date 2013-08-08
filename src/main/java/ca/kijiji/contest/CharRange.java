@@ -14,30 +14,35 @@ public class CharRange implements CharSequence {
     static final char[] EMPTY_BUFFER = new char[]{};
 
     /**
-     * Create a CharRange backed by an external
+     * Create a CharRange backed by an external char array
      */
     public CharRange(char[] buffer, int start, int end) {
-        this._start = start;
-        this._end = end;
-        this._buffer = buffer;
+        set(buffer, start, end);
     }
 
     /**
      * Create a CharRange backed by a string's char array
      */
     public CharRange(String str) {
-        this._start = 0;
-        this._buffer = str.toCharArray();
-        this._end = this._buffer.length;
+        char[] strBuf = str.toCharArray();
+        set(strBuf, 0, strBuf.length);
     }
 
     /**
      * An empty CharRange
      */
     public CharRange() {
-        this._start = 0;
-        this._end = 0;
-        this._buffer = EMPTY_BUFFER;
+        set(EMPTY_BUFFER, 0, 0);
+    }
+
+    /**
+     * Sets the contents of a CharRange, useful for avoiding object creation penalties when you can
+     * re-use CharRange instances.
+     */
+    public void set(char[] buffer, int start, int end) {
+        this._buffer = buffer;
+        this._start = start;
+        this._end = end;
     }
 
     public int length() {
@@ -72,7 +77,6 @@ public class CharRange implements CharSequence {
      * Get a slice of the CharRange starting from start and ending at end
      * @param start start relative to instance's this._start
      * @param end end relative to instance's this._start
-     * @return
      */
     public CharSequence subSequence(int start, int end) {
         assert(end >= 0 && end <= length());
@@ -83,14 +87,17 @@ public class CharRange implements CharSequence {
 
     /**
      * Split the CharRange into the specified list
+     * If the List contains any CharRanges they will be re-used instead of creating new CharRange instances.
      * @param list list to split into
      * @param sep character that separates entries
      * @param keepEmpty whether or not to keep empty entries
+     * @return number of matches found
      */
-    public void splitInto(List<CharRange> list, char sep, boolean keepEmpty) {
+    public int splitInto(List<CharRange> list, char sep, boolean keepEmpty) {
         //Based on splitWorker from Apache Commons
 
         int i;
+        int numMatches = 0;
         int start = i = this._start;
 
         boolean match = false;
@@ -98,7 +105,13 @@ public class CharRange implements CharSequence {
         while (i < this._end) {
             if (this._buffer[i] == sep) {
                 if (match || keepEmpty) {
-                    list.add(new CharRange(this._buffer, start, i));
+
+                    ++numMatches;
+                    if(numMatches > list.size())
+                        list.add(new CharRange());
+
+                    list.get(numMatches - 1).set(this._buffer, start, i);
+
                     match = false;
                     lastMatch = true;
                 }
@@ -111,8 +124,15 @@ public class CharRange implements CharSequence {
         }
 
         if (match || keepEmpty && lastMatch) {
-            list.add(new CharRange(this._buffer, start, i));
+            ++numMatches;
+            if(numMatches > list.size())
+                list.add(new CharRange());
+
+            list.get(numMatches - 1).set(this._buffer, start, i);
         }
+
+        // we can't use list size to detemine how many matches there were, return numMatches
+        return numMatches;
     }
 
     /**
@@ -175,7 +195,11 @@ public class CharRange implements CharSequence {
         this._end = i + 1;
     }
 
-    public String toString(int start) {
+    /**
+     * Return a slice of the CharRange as a string, beginning at start
+     * @param start where to begin the slice (inclusive)
+     */
+    public String strSlice(int start) {
         return new String(this._buffer, start + this._start, this._end - this._start - start);
     }
 
