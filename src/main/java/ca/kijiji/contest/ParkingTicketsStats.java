@@ -9,14 +9,10 @@ import java.util.TreeMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class ParkingTicketsStats {
 
 	static final byte[] data = new byte[4 * 1024 * 1024];
-
-	static final Pattern namePattern = Pattern.compile("([A-Z][A-Z][A-Z]+|ST [A-Z][A-Z][A-Z]+)");
 
 	// 4-cores with HyperThreading sets nThreads = 8
 	static final int nWorkers = 4; // Runtime.getRuntime().availableProcessors();
@@ -176,7 +172,6 @@ public class ParkingTicketsStats {
          * worker parallel worker takes blocks of bytes read and processes them
          */
     	public final void run() {
-    		final Matcher nameMatcher = namePattern.matcher("");
     		final StringBuilder nameBuffer = new StringBuilder(256);
 
     		for (;;) {
