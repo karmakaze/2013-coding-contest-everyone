@@ -177,7 +177,7 @@ public class ParkingTicketsStats {
          */
     	public final void run() {
     		final Matcher nameMatcher = namePattern.matcher("");
-    		final StringBuilder location = new StringBuilder();
+    		final StringBuilder nameBuffer = new StringBuilder(256);
 
     		for (;;) {
     			int[] block_start_end;
@@ -219,15 +219,9 @@ public class ParkingTicketsStats {
     					while (end < block_end && data[end] != ',' && data[end] != '\n') { end++; }
 
     					if (fine > 0) {
-    						for (location.setLength(0); start < end; ) {
-    							location.append((char) data[start++]);
+    						if (extractStreetName(data, start, end, nameBuffer)) {
+    			    			map.adjustOrPutValue(nameBuffer, fine);
     						}
-
-    			    		nameMatcher.reset(location);
-    			    		if (nameMatcher.find()) {
-    			    			final String name = nameMatcher.group();
-    			    			map.adjustOrPutValue(name, fine);
-    		    			}
     					}
     				}
     				else {
@@ -246,6 +240,31 @@ public class ParkingTicketsStats {
     	public final void mergeTo(Worker dest) {
     		map.mergeTo(dest.map);
     	}
+    }
+
+    static final boolean extractStreetName(byte[] data, int start, int end, StringBuilder output) {
+    	output.setLength(0);
+    	int count = 0;
+		for (int i = start; i < end; i++) {
+			if (data[i] >= 'A' && data[i] <= 'Z') {
+				output.append((char) data[i]);
+				count++;
+			}
+			else if (data[i] == ' ') {
+				if (count == 2 && output.charAt(0) == 'S' && output.charAt(1) == 'T') {
+					output.append((char) data[i]);
+					count++;
+				}
+				else if (count > 2) {
+					break;
+				}
+				else {
+					output.setLength(0);
+					count = 0;
+				}
+			}
+		}
+		return count > 2;
     }
 
     static volatile long lastTime = System.currentTimeMillis();

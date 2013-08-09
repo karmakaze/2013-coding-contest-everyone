@@ -51,7 +51,7 @@ public class OpenStringIntHashMap {
 		}
 	}
 
-	public void adjustOrPutValue(String key, int value) {
+	public void adjustOrPutValue(CharSequence key, int value) {
 		int hash = hash(key);
 		int cur = hash % capacity;
 		if (cur < 0) cur += capacity;
@@ -110,7 +110,7 @@ public class OpenStringIntHashMap {
 		return false;
 	}
 
-	private final boolean adjustOrPutValue(String key, int hash, int value, int cur, int end) {
+	private final boolean adjustOrPutValue(CharSequence key, int hash, int value, int cur, int end) {
 		do {
 			long vh = valueHashes[cur];
 			int h = (int) vh;
@@ -120,7 +120,7 @@ public class OpenStringIntHashMap {
 			}
 			else if (h == 0) {
 				valueHashes[cur] = (long)value << 32 | (long)hash & 0x00ffffffffL;
-				keys[cur] = key;
+				keys[cur] = key.toString();
 				return true;
 			}
 		} while (++cur < end);
@@ -143,7 +143,7 @@ public class OpenStringIntHashMap {
 		}
 	}
 
-	private int hash(String key) {
+	private int hash(CharSequence key) {
 		int hash = 0;
 
 		int l = key.length();
