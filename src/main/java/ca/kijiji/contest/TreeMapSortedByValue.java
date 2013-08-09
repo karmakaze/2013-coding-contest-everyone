@@ -131,7 +131,7 @@ public class TreeMapSortedByValue implements SortedMap<String, Integer> {
 
 	@Override
 	public Set<java.util.Map.Entry<String, Integer>> entrySet() {		
-		return map.entrySet();
+		return set;
 	}
 
 	@Override
